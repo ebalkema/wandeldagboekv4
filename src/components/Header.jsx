@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { FaLeaf } from 'react-icons/fa';
 
 /**
  * Component voor de navigatiebalk
@@ -23,27 +24,46 @@ const Header = () => {
   const isActivePage = currentPath.includes('/active-walk/');
   
   return (
-    <header className="bg-blue-600 text-white shadow-md">
+    <header className="bg-primary-600 text-white shadow-md">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           {/* Logo en titel */}
           <Link to="/" className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
+            <FaLeaf className="h-6 w-6 mr-2 flex-shrink-0" />
             <span className="text-lg font-bold truncate">{getTitle()}</span>
           </Link>
 
           {/* Actieknoppen voor specifieke pagina's */}
-          {isActivePage && (
+          {isActivePage ? (
             <Link
               to="/"
-              className="bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded-md text-sm transition-colors duration-200"
+              className="bg-primary-700 hover:bg-primary-800 px-3 py-1 rounded-md text-sm transition-colors duration-200"
             >
               Terug naar dashboard
             </Link>
+          ) : (
+            <a
+              href="https://www.mennoenerwin.nl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-white/80 hover:text-white transition-colors duration-200 flex items-center"
+            >
+              <span>Door Menno & Erwin</span>
+            </a>
           )}
         </div>
+      </div>
+      
+      {/* Podcast banner */}
+      <div className="bg-secondary-600 text-white text-xs py-1 text-center">
+        <a 
+          href="https://www.mennoenerwin.nl" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          Ontdek de natuur met de Menno & Erwin podcast - Bezoek www.mennoenerwin.nl
+        </a>
       </div>
     </header>
   );

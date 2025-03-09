@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { isOnline, hasPendingSyncItems, getPendingSyncCount, syncOfflineItems } from '../services/offlineService';
-import { FaWifi, FaWifiSlash, FaSync, FaFireAlt, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaWifi, FaSync, FaCheck, FaExclamationTriangle, FaBan } from 'react-icons/fa';
+import { FaFire } from 'react-icons/fa';
 
 /**
  * Component voor het weergeven van de offline status en synchronisatie-opties
@@ -84,7 +85,10 @@ const OfflineIndicator = () => {
       >
         <div className="flex items-center">
           {!online ? (
-            <FaWifiSlash className="text-red-500 mr-2" />
+            <div className="relative mr-2">
+              <FaWifi className="text-red-300" />
+              <FaBan className="text-red-500 absolute top-0 left-0 text-sm" />
+            </div>
           ) : syncing ? (
             <FaSync className="text-blue-500 mr-2 animate-spin" />
           ) : syncSuccess === true ? (
@@ -117,7 +121,7 @@ const OfflineIndicator = () => {
                     <FaSync className={`text-blue-700 ${syncing ? 'animate-spin' : ''}`} />
                   </button>
                   
-                  <FaFireAlt className="text-orange-500 ml-1" title="Firestore" />
+                  <FaFire className="text-orange-500 ml-1" title="Firestore" />
                 </div>
               </div>
             )}
@@ -137,7 +141,7 @@ const OfflineIndicator = () => {
         {showDetails && pendingItems > 0 && (
           <div className="mt-2 text-xs text-gray-600 border-t border-gray-200 pt-2">
             <p className="flex items-center">
-              <FaFireAlt className="text-orange-500 mr-1" />
+              <FaFire className="text-orange-500 mr-1" />
               <span>Synchroniseren naar Firestore database</span>
             </p>
             <p className="mt-1">

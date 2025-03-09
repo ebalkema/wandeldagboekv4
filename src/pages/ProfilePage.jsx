@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getUserWalks } from '../services/firestoreService';
 import { hasPendingSyncItems, syncOfflineItems, getPendingSyncCount } from '../services/offlineService';
-import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart, FaFireAlt, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart } from 'react-icons/fa';
+import { FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaFire } from 'react-icons/fa';
 
 /**
  * Profielpagina voor gebruikersinstellingen en statistieken
@@ -177,7 +179,7 @@ const ProfilePage = () => {
                 <div className="flex-grow">
                   <div className="flex items-center">
                     <p className="font-medium">Synchroniseer met Firestore</p>
-                    <FaFireAlt className="text-orange-500 ml-2" />
+                    <FaFire className="text-orange-500 ml-2" />
                   </div>
                   
                   <p className="text-sm text-gray-600 mt-1">

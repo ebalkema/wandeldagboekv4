@@ -1,5 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-import { FaHome, FaWalking, FaUser, FaPlus } from 'react-icons/fa';
+import { FaHome } from 'react-icons/fa';
+import { FaWalking } from 'react-icons/fa';
+import { FaUser } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 
 /**
  * Component voor tabblad-navigatie onderaan het scherm
@@ -31,7 +34,7 @@ const TabNavigation = () => {
         <Link 
           to="/" 
           className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/') ? 'text-blue-600' : 'text-gray-500'
+            isActive('/') ? 'text-primary-600' : 'text-gray-500'
           }`}
         >
           <FaHome className="text-xl mb-1" />
@@ -42,7 +45,7 @@ const TabNavigation = () => {
         <Link 
           to="/walks" 
           className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/walks') ? 'text-blue-600' : 'text-gray-500'
+            isActive('/walks') ? 'text-primary-600' : 'text-gray-500'
           }`}
         >
           <FaWalking className="text-xl mb-1" />
@@ -54,7 +57,7 @@ const TabNavigation = () => {
           to="/new-walk" 
           className="flex flex-col items-center justify-center w-full h-full"
         >
-          <div className="bg-green-600 text-white rounded-full p-3 mb-1 shadow-md">
+          <div className="bg-primary-600 text-white rounded-full p-3 mb-1 shadow-md">
             <FaPlus className="text-lg" />
           </div>
           <span className="text-xs text-gray-500">Nieuw</span>
@@ -64,7 +67,7 @@ const TabNavigation = () => {
         <Link 
           to="/profile" 
           className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/profile') ? 'text-blue-600' : 'text-gray-500'
+            isActive('/profile') ? 'text-primary-600' : 'text-gray-500'
           }`}
         >
           <FaUser className="text-xl mb-1" />
