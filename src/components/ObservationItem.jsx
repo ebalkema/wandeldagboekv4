@@ -1,11 +1,38 @@
+import { useState } from 'react';
 import { formatTime } from '../utils/dateUtils';
+import { suggestObservationToJournal, checkJournalApiSupport } from '../services/journalService';
 import WeatherDisplay from './WeatherDisplay';
+import { FaCloudUploadAlt } from 'react-icons/fa';
 
 /**
  * Component voor het weergeven van een observatie
  */
-const ObservationItem = ({ observation, onClick }) => {
+const ObservationItem = ({ observation, onClick, isOffline }) => {
+  const [isJournalSupported] = useState(checkJournalApiSupport());
+  const [sharingToJournal, setSharingToJournal] = useState(false);
+
   if (!observation) return null;
+
+  // Deel observatie met Apple Journal
+  const handleShareToJournal = async (e) => {
+    e.stopPropagation(); // Voorkom dat de onClick van de parent wordt aangeroepen
+    
+    try {
+      setSharingToJournal(true);
+      const success = await suggestObservationToJournal(observation);
+      
+      if (success) {
+        alert('Observatie succesvol gedeeld met Apple Journal');
+      } else {
+        alert('Kon observatie niet delen met Apple Journal');
+      }
+    } catch (error) {
+      console.error('Fout bij het delen met Apple Journal:', error);
+      alert('Er is een fout opgetreden bij het delen met Apple Journal');
+    } finally {
+      setSharingToJournal(false);
+    }
+  };
 
   // Bepaal de categorie-icoon
   const getCategoryIcon = (category) => {
@@ -58,9 +85,26 @@ const ObservationItem = ({ observation, onClick }) => {
     }
   };
 
+  // Bepaal de timestamp weergave
+  const getTimestamp = () => {
+    if (!observation.timestamp) return null;
+    
+    // Voor Firestore timestamp
+    if (observation.timestamp.seconds) {
+      return formatTime(new Date(observation.timestamp.seconds * 1000));
+    }
+    
+    // Voor ISO string (offline modus)
+    if (typeof observation.timestamp === 'string') {
+      return formatTime(new Date(observation.timestamp));
+    }
+    
+    return null;
+  };
+
   return (
     <div 
-      className="bg-white rounded-lg shadow-sm p-4 mb-3 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+      className={`bg-white rounded-lg shadow-sm p-4 mb-3 hover:shadow-md transition-shadow duration-200 cursor-pointer ${isOffline ? 'border-l-4 border-blue-400' : ''}`}
       onClick={() => onClick && onClick(observation)}
     >
       <div className="flex justify-between items-start">
@@ -74,9 +118,16 @@ const ObservationItem = ({ observation, onClick }) => {
               <h3 className="font-medium text-gray-900">
                 {observation.category || 'Observatie'}
               </h3>
-              {observation.timestamp && (
+              {getTimestamp() && (
                 <span className="ml-2 text-xs text-gray-500">
-                  {formatTime(new Date(observation.timestamp.seconds * 1000))}
+                  {getTimestamp()}
+                </span>
+              )}
+              
+              {isOffline && (
+                <span className="ml-2 flex items-center text-xs text-blue-600">
+                  <FaCloudUploadAlt className="mr-1" />
+                  Wacht op synchronisatie
                 </span>
               )}
             </div>
@@ -98,9 +149,31 @@ const ObservationItem = ({ observation, onClick }) => {
           </div>
         </div>
         
-        {observation.weatherAtPoint && (
-          <WeatherDisplay weather={observation.weatherAtPoint} size="small" />
-        )}
+        <div className="flex flex-col items-end">
+          {observation.weatherAtPoint && (
+            <WeatherDisplay weather={observation.weatherAtPoint} size="small" />
+          )}
+          
+          {isJournalSupported && !isOffline && (
+            <button
+              className="mt-2 text-gray-500 hover:text-gray-700 p-1 rounded-full"
+              onClick={handleShareToJournal}
+              disabled={sharingToJournal}
+              title="Deel met Apple Journal"
+            >
+              {sharingToJournal ? (
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

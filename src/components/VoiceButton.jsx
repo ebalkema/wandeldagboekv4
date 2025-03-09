@@ -17,11 +17,13 @@ const VoiceButton = ({
 }) => {
   const { isListening, transcript, startListening, stopListening, isSupported } = useVoice();
   const [localTranscript, setLocalTranscript] = useState('');
+  const [shouldTriggerResult, setShouldTriggerResult] = useState(false);
 
   // Update de lokale transcript wanneer de globale transcript verandert
   useEffect(() => {
-    if (isListening) {
+    if (isListening && transcript) {
       setLocalTranscript(transcript);
+      console.log("Transcript bijgewerkt:", transcript);
     }
   }, [transcript, isListening]);
 
@@ -31,25 +33,35 @@ const VoiceButton = ({
     
     if (isListening && autoStop) {
       timer = setTimeout(() => {
+        console.log("AutoStop: Stoppen met luisteren na timeout");
+        setShouldTriggerResult(true);
         stopListening();
-        if (onResult && localTranscript) {
-          onResult(localTranscript);
-        }
       }, autoStopTime);
     }
     
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [isListening, autoStop, autoStopTime, stopListening, onResult, localTranscript]);
+  }, [isListening, autoStop, autoStopTime, stopListening]);
 
   // Wanneer het luisteren stopt, geef het resultaat door
   useEffect(() => {
-    if (!isListening && localTranscript && onResult) {
-      onResult(localTranscript);
-      setLocalTranscript('');
+    if ((!isListening && localTranscript) || shouldTriggerResult) {
+      if (localTranscript && onResult) {
+        console.log("Resultaat doorgeven:", localTranscript);
+        onResult(localTranscript);
+      }
+      
+      // Reset de state
+      if (shouldTriggerResult) {
+        setShouldTriggerResult(false);
+      }
+      
+      if (!isListening) {
+        setLocalTranscript('');
+      }
     }
-  }, [isListening, localTranscript, onResult]);
+  }, [isListening, localTranscript, onResult, shouldTriggerResult]);
 
   // Bepaal de grootte van de knop
   const sizeClasses = {
@@ -82,6 +94,8 @@ const VoiceButton = ({
     if (disabled || !isSupported) return;
     
     if (isListening) {
+      console.log("Handmatig stoppen met luisteren");
+      setShouldTriggerResult(true);
       stopListening();
     } else {
       setLocalTranscript('');

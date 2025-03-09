@@ -2,6 +2,7 @@
 #root {
   min-height: 100vh;
   width: 100%;
+  overflow-x: hidden;
 }
 
 /* Leaflet kaart stijlen */
@@ -9,6 +10,9 @@
   width: 100%;
   height: 100%;
   z-index: 1;
+  max-height: 70vh;
+  min-height: 300px;
+  border-radius: 0.5rem;
 }
 
 /* Aangepaste marker stijlen */
@@ -55,4 +59,31 @@
 .observation-popup small {
   color: #666;
   font-size: 12px;
+}
+
+/* Responsieve aanpassingen */
+@media (max-width: 640px) {
+  .leaflet-container {
+    max-height: 50vh;
+    min-height: 250px;
+  }
+  
+  h1 {
+    font-size: 1.5rem !important;
+  }
+  
+  h2 {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* Fix voor grote afbeeldingen */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Verbeter leesbaarheid van tekst */
+p, span, div {
+  word-break: break-word;
 }

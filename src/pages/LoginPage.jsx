@@ -46,22 +46,22 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-6">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Inloggen</h2>
-          <p className="text-gray-600 mt-1">Log in om je wandelingen te beheren</p>
+    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden mt-4 sm:mt-8">
+      <div className="p-4 sm:p-6">
+        <div className="text-center mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Inloggen</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Log in om je wandelingen te beheren</p>
         </div>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 sm:px-4 sm:py-3 rounded mb-4 text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-gray-700 font-medium mb-2">
+          <div className="mb-3 sm:mb-4">
+            <label htmlFor="email" className="block text-gray-700 text-sm font-medium mb-1 sm:mb-2">
               E-mailadres
             </label>
             <input
@@ -69,13 +69,13 @@ const LoginPage = () => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
               required
             />
           </div>
 
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
+          <div className="mb-4 sm:mb-6">
+            <label htmlFor="password" className="block text-gray-700 text-sm font-medium mb-1 sm:mb-2">
               Wachtwoord
             </label>
             <input
@@ -83,7 +83,7 @@ const LoginPage = () => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
               required
             />
           </div>
@@ -91,20 +91,20 @@ const LoginPage = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200"
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200 text-sm sm:text-base"
           >
             {loading ? 'Bezig met inloggen...' : 'Inloggen'}
           </button>
         </form>
 
         <div className="mt-4 text-center">
-          <p className="text-gray-600">Of log in met</p>
+          <p className="text-gray-600 text-sm sm:text-base">Of log in met</p>
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="mt-2 w-full flex items-center justify-center bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200"
+            className="mt-2 w-full flex items-center justify-center bg-white border border-gray-300 rounded-lg px-3 py-2 sm:px-4 sm:py-2 text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200 text-sm sm:text-base"
           >
-            <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 mr-2" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -126,8 +126,8 @@ const LoginPage = () => {
           </button>
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
+        <div className="mt-4 sm:mt-6 text-center">
+          <p className="text-gray-600 text-sm sm:text-base">
             Nog geen account?{' '}
             <Link to="/register" className="text-blue-600 hover:underline">
               Registreer hier

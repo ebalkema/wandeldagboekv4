@@ -16,10 +16,20 @@ import {
   calculateRouteDistance 
 } from '../services/locationService';
 import { getWeatherData } from '../services/weatherService';
+import {
+  isOnline,
+  saveOfflineWalk,
+  saveOfflineObservation,
+  updateOfflineWalk,
+  endOfflineWalk,
+  getOfflineWalk,
+  getOfflineObservations
+} from '../services/offlineService';
 import MapComponent from '../components/MapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
 import VoiceButton from '../components/VoiceButton';
 import ObservationItem from '../components/ObservationItem';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 /**
  * Pagina voor een actieve wandeling
@@ -40,10 +50,26 @@ const ActiveWalkPage = () => {
   const [observationCategory, setObservationCategory] = useState('algemeen');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isOffline, setIsOffline] = useState(!isOnline());
   
   const watchIdRef = useRef(null);
   const fileInputRef = useRef(null);
   const lastObservationIdRef = useRef(null);
+
+  // Controleer online status
+  useEffect(() => {
+    const handleOnlineStatusChange = () => {
+      setIsOffline(!isOnline());
+    };
+
+    window.addEventListener('online', handleOnlineStatusChange);
+    window.addEventListener('offline', handleOnlineStatusChange);
+
+    return () => {
+      window.removeEventListener('online', handleOnlineStatusChange);
+      window.removeEventListener('offline', handleOnlineStatusChange);
+    };
+  }, []);
 
   // Haal wandelgegevens op
   useEffect(() => {
@@ -51,16 +77,29 @@ const ActiveWalkPage = () => {
       if (!walkId) return;
       
       try {
-        const walkData = await getWalk(walkId);
+        let walkData;
+        let observationsData = [];
+
+        if (isOffline) {
+          console.log('Offline modus: wandelgegevens ophalen uit lokale opslag');
+          walkData = getOfflineWalk(walkId);
+          if (walkData) {
+            observationsData = getOfflineObservations(walkId);
+          }
+        } else {
+          console.log('Online modus: wandelgegevens ophalen uit Firestore');
+          walkData = await getWalk(walkId);
+          if (walkData) {
+            observationsData = await getWalkObservations(walkId);
+          }
+        }
+
         if (!walkData) {
           setError('Wandeling niet gevonden');
           return;
         }
         
         setWalk(walkData);
-        
-        // Haal observaties op
-        const observationsData = await getWalkObservations(walkId);
         setObservations(observationsData);
         
         // Zet initiële pathPoints
@@ -81,7 +120,7 @@ const ActiveWalkPage = () => {
     };
     
     fetchWalkData();
-  }, [walkId]);
+  }, [walkId, isOffline]);
 
   // Start locatie tracking
   useEffect(() => {
@@ -108,7 +147,7 @@ const ActiveWalkPage = () => {
             if (latDiff > 0.00001 || lngDiff > 0.00001) {
               const newPoints = [...prev, newLocation];
               
-              // Update de wandeling in Firestore
+              // Update de wandeling in Firestore of lokale opslag
               updateWalkPath(newPoints);
               
               // Bereken afstand
@@ -131,8 +170,10 @@ const ActiveWalkPage = () => {
     
     startTracking();
     
-    // Haal weergegevens op
-    fetchWeatherData();
+    // Haal weergegevens op als we online zijn
+    if (!isOffline) {
+      fetchWeatherData();
+    }
     
     // Cleanup functie
     return () => {
@@ -140,11 +181,11 @@ const ActiveWalkPage = () => {
         stopLocationTracking(watchIdRef.current);
       }
     };
-  }, [walkId]);
+  }, [walkId, isOffline]);
 
   // Haal weergegevens op
   const fetchWeatherData = async () => {
-    if (!currentLocation) return;
+    if (!currentLocation || isOffline) return;
     
     try {
       const weatherData = await getWeatherData(currentLocation[0], currentLocation[1]);
@@ -154,14 +195,20 @@ const ActiveWalkPage = () => {
     }
   };
 
-  // Update wandelpad in Firestore
+  // Update wandelpad in Firestore of lokale opslag
   const updateWalkPath = async (points) => {
     if (!walkId) return;
     
     try {
-      await updateWalk(walkId, {
-        pathPoints: points.map(point => ({ lat: point[0], lng: point[1] }))
-      });
+      const pathPointsData = points.map(point => ({ lat: point[0], lng: point[1] }));
+      
+      if (isOffline) {
+        console.log('Offline modus: wandelpad updaten in lokale opslag');
+        updateOfflineWalk(walkId, { pathPoints: pathPointsData });
+      } else {
+        console.log('Online modus: wandelpad updaten in Firestore');
+        await updateWalk(walkId, { pathPoints: pathPointsData });
+      }
     } catch (error) {
       console.error('Fout bij het updaten van wandelpad:', error);
     }
@@ -179,12 +226,15 @@ const ActiveWalkPage = () => {
         stopLocationTracking(watchIdRef.current);
       }
       
-      // Beëindig de wandeling
-      await endWalk(
-        walkId, 
-        { lat: currentLocation[0], lng: currentLocation[1] }, 
-        distance
-      );
+      const endLocationData = { lat: currentLocation[0], lng: currentLocation[1] };
+      
+      if (isOffline) {
+        console.log('Offline modus: wandeling beëindigen in lokale opslag');
+        endOfflineWalk(walkId, endLocationData, distance);
+      } else {
+        console.log('Online modus: wandeling beëindigen in Firestore');
+        await endWalk(walkId, endLocationData, distance);
+      }
       
       // Navigeer naar de samenvatting
       navigate(`/walk-summary/${walkId}`);
@@ -203,28 +253,48 @@ const ActiveWalkPage = () => {
 
   // Verwerk spraakcommando's
   const handleVoiceCommand = async (text) => {
+    if (!text) {
+      console.error('Geen tekst ontvangen van spraakherkenning');
+      return;
+    }
+    
+    console.log('Ontvangen spraakcommando:', text);
+    
     if (isRecordingObservation) {
       // Als we een observatie aan het opnemen zijn, sla deze op
-      await saveObservation(text, observationCategory);
+      console.log('Observatie opslaan:', text, observationCategory);
+      const observationId = await saveObservation(text, observationCategory);
+      
+      if (observationId) {
+        console.log('Observatie succesvol opgeslagen met ID:', observationId);
+      } else {
+        console.error('Fout bij het opslaan van observatie');
+      }
+      
       setIsRecordingObservation(false);
     } else {
       // Anders, verwerk als commando
       const command = processCommand(text);
+      console.log('Verwerkt commando:', command);
       
       if (command) {
         switch (command.type) {
           case 'NEW_OBSERVATION':
+            console.log('Nieuwe observatie starten');
             handleStartObservation();
             break;
           case 'END_WALK':
+            console.log('Wandeling beëindigen');
             handleEndWalk();
             break;
           case 'TEXT':
             // Als het geen specifiek commando is, behandel als observatie
+            console.log('Tekst als observatie behandelen:', command.text);
             await saveObservation(command.text);
             break;
           default:
             // Geen actie voor andere commando's
+            console.log('Geen actie voor commando type:', command.type);
             break;
         }
       }
@@ -233,24 +303,67 @@ const ActiveWalkPage = () => {
 
   // Sla een observatie op
   const saveObservation = async (text, category = 'algemeen') => {
-    if (!text || !walkId || !currentUser || !currentLocation) return;
+    if (!text) {
+      console.error('Geen tekst om op te slaan');
+      return null;
+    }
+    
+    if (!walkId) {
+      console.error('Geen walkId beschikbaar');
+      return null;
+    }
+    
+    if (!currentUser) {
+      console.error('Geen gebruiker ingelogd');
+      return null;
+    }
+    
+    if (!currentLocation) {
+      console.error('Geen locatie beschikbaar');
+      return null;
+    }
+    
+    console.log(`Observatie opslaan: "${text}" in categorie "${category}"`);
     
     try {
-      const observationId = await addObservation(
-        walkId,
-        currentUser.uid,
-        text,
-        { lat: currentLocation[0], lng: currentLocation[1] },
-        category,
-        currentWeather
-      );
+      const locationData = { lat: currentLocation[0], lng: currentLocation[1] };
+      let observationId;
+      
+      if (isOffline) {
+        console.log('Offline modus: observatie opslaan in lokale opslag');
+        observationId = saveOfflineObservation({
+          walkId,
+          userId: currentUser.uid,
+          text,
+          location: locationData,
+          category,
+          weatherAtPoint: currentWeather,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Haal observaties opnieuw op uit lokale opslag
+        const offlineObservations = getOfflineObservations(walkId);
+        setObservations(offlineObservations);
+      } else {
+        console.log('Online modus: observatie opslaan in Firestore');
+        observationId = await addObservation(
+          walkId,
+          currentUser.uid,
+          text,
+          locationData,
+          category,
+          currentWeather
+        );
+        
+        // Haal observaties opnieuw op uit Firestore
+        const observationsData = await getWalkObservations(walkId);
+        setObservations(observationsData);
+      }
+      
+      console.log('Observatie opgeslagen met ID:', observationId);
       
       // Sla het observatie-ID op voor het geval we een foto willen toevoegen
       lastObservationIdRef.current = observationId;
-      
-      // Haal observaties opnieuw op
-      const observationsData = await getWalkObservations(walkId);
-      setObservations(observationsData);
       
       return observationId;
     } catch (error) {
@@ -262,6 +375,11 @@ const ActiveWalkPage = () => {
 
   // Voeg een foto toe aan de laatste observatie
   const handleAddPhoto = () => {
+    if (isOffline) {
+      setError('Foto\'s toevoegen is niet beschikbaar in offline modus');
+      return;
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -270,7 +388,7 @@ const ActiveWalkPage = () => {
   // Verwerk foto upload
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (!file || !lastObservationIdRef.current) return;
+    if (!file || !lastObservationIdRef.current || isOffline) return;
     
     try {
       setLoading(true);
@@ -321,6 +439,21 @@ const ActiveWalkPage = () => {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Offline indicator */}
+      <OfflineIndicator />
+      
+      {/* Offline waarschuwing */}
+      {isOffline && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+          <div className="flex items-center">
+            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p>Je bent offline. Wandelgegevens worden lokaal opgeslagen en gesynchroniseerd wanneer je weer online bent.</p>
+          </div>
+        </div>
+      )}
+      
       {/* Kaart sectie */}
       <div className="h-1/2 mb-4">
         <MapComponent 
@@ -328,6 +461,7 @@ const ActiveWalkPage = () => {
           pathPoints={pathPoints}
           observations={observations}
           height="100%"
+          offlineMode={isOffline}
         />
       </div>
       
@@ -407,8 +541,9 @@ const ActiveWalkPage = () => {
             
             <button
               onClick={handleAddPhoto}
-              disabled={!lastObservationIdRef.current}
+              disabled={!lastObservationIdRef.current || isOffline}
               className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+              title={isOffline ? "Foto's toevoegen is niet beschikbaar in offline modus" : "Voeg een foto toe aan de laatste observatie"}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -444,6 +579,7 @@ const ActiveWalkPage = () => {
                 key={observation.id} 
                 observation={observation} 
                 onClick={() => {}} 
+                isOffline={observation.pendingSync}
               />
             ))}
           </div>

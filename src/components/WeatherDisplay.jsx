@@ -12,20 +12,20 @@ const WeatherDisplay = ({ weather, size = 'medium' }) => {
   const sizeClasses = {
     small: {
       container: 'flex items-center text-xs',
-      icon: 'w-6 h-6',
+      icon: 'w-6 h-6 object-contain',
       temp: 'text-sm font-semibold',
       desc: 'hidden'
     },
     medium: {
       container: 'flex items-center',
-      icon: 'w-10 h-10',
-      temp: 'text-lg font-semibold',
+      icon: 'w-8 h-8 object-contain',
+      temp: 'text-base font-semibold',
       desc: 'text-xs text-gray-600'
     },
     large: {
       container: 'flex flex-col items-center',
-      icon: 'w-16 h-16',
-      temp: 'text-2xl font-bold',
+      icon: 'w-12 h-12 object-contain',
+      temp: 'text-xl font-bold',
       desc: 'text-sm text-gray-600'
     }
   };
@@ -35,11 +35,14 @@ const WeatherDisplay = ({ weather, size = 'medium' }) => {
   return (
     <div className={classes.container}>
       {weather.icon && (
-        <img 
-          src={getWeatherIconUrl(weather.icon)} 
-          alt={weather.description || 'Weer'} 
-          className={classes.icon}
-        />
+        <div className="flex-shrink-0">
+          <img 
+            src={getWeatherIconUrl(weather.icon)} 
+            alt={weather.description || 'Weer'} 
+            className={classes.icon}
+            loading="lazy"
+          />
+        </div>
       )}
       <div className="flex flex-col ml-1">
         <span className={classes.temp}>{weather.temperature}°C</span>

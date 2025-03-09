@@ -2,28 +2,62 @@
  * Service voor het werken met locatiegegevens
  */
 
+// Standaard locatie (Amsterdam) als fallback
+const DEFAULT_LOCATION = {
+  lat: 52.3676,
+  lng: 4.9041
+};
+
 /**
  * Haalt de huidige locatie op
+ * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
  * @returns {Promise<{lat: number, lng: number}>} - Huidige locatie
  */
-export const getCurrentLocation = () => {
+export const getCurrentLocation = (useFallback = true) => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error('Geolocation wordt niet ondersteund door deze browser.'));
+      console.warn('Geolocation wordt niet ondersteund door deze browser.');
+      if (useFallback) {
+        console.info('Fallback locatie wordt gebruikt.');
+        resolve(DEFAULT_LOCATION);
+      } else {
+        reject(new Error('Geolocation wordt niet ondersteund door deze browser.'));
+      }
       return;
     }
     
+    const timeoutId = setTimeout(() => {
+      console.warn('Locatie ophalen duurde te lang, fallback locatie wordt gebruikt.');
+      if (useFallback) {
+        resolve(DEFAULT_LOCATION);
+      } else {
+        reject(new Error('Locatie ophalen duurde te lang.'));
+      }
+    }, 10000); // 10 seconden timeout
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        clearTimeout(timeoutId);
         resolve({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
       },
       (error) => {
-        reject(error);
+        clearTimeout(timeoutId);
+        console.warn('Fout bij het ophalen van locatie:', error.message);
+        if (useFallback) {
+          console.info('Fallback locatie wordt gebruikt.');
+          resolve(DEFAULT_LOCATION);
+        } else {
+          reject(error);
+        }
       },
-      { enableHighAccuracy: true }
+      { 
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
     );
   });
 };
@@ -31,14 +65,35 @@ export const getCurrentLocation = () => {
 /**
  * Start het volgen van de locatie
  * @param {Function} callback - Functie die wordt aangeroepen bij locatiewijzigingen
- * @returns {number} - ID van de watch die kan worden gebruikt om het volgen te stoppen
+ * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
+ * @returns {number|null} - ID van de watch die kan worden gebruikt om het volgen te stoppen, of null bij fallback
  */
-export const startLocationTracking = (callback) => {
+export const startLocationTracking = (callback, useFallback = true) => {
   if (!navigator.geolocation) {
-    throw new Error('Geolocation wordt niet ondersteund door deze browser.');
+    console.warn('Geolocation wordt niet ondersteund door deze browser.');
+    if (useFallback) {
+      console.info('Fallback locatie wordt gebruikt voor tracking.');
+      // Simuleer locatie updates met kleine variaties rond de fallback locatie
+      const intervalId = setInterval(() => {
+        const randomLat = DEFAULT_LOCATION.lat + (Math.random() - 0.5) * 0.001; // ±~50m
+        const randomLng = DEFAULT_LOCATION.lng + (Math.random() - 0.5) * 0.001; // ±~50m
+        
+        callback({
+          lat: randomLat,
+          lng: randomLng,
+          accuracy: 50, // 50 meter nauwkeurigheid
+          timestamp: Date.now()
+        });
+      }, 5000); // Elke 5 seconden
+      
+      // Sla het interval ID op in een object dat we kunnen gebruiken om het later te stoppen
+      return { type: 'fallback', id: intervalId };
+    } else {
+      throw new Error('Geolocation wordt niet ondersteund door deze browser.');
+    }
   }
   
-  return navigator.geolocation.watchPosition(
+  const watchId = navigator.geolocation.watchPosition(
     (position) => {
       callback({
         lat: position.coords.latitude,
@@ -49,18 +104,39 @@ export const startLocationTracking = (callback) => {
     },
     (error) => {
       console.error('Fout bij het volgen van locatie:', error);
+      if (useFallback) {
+        // Als er een fout optreedt, schakel over naar fallback
+        console.info('Overschakelen naar fallback locatie voor tracking.');
+        stopLocationTracking(watchId);
+        return startLocationTracking(callback, true);
+      }
     },
-    { enableHighAccuracy: true }
+    { 
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
   );
+  
+  return { type: 'geolocation', id: watchId };
 };
 
 /**
  * Stopt het volgen van de locatie
- * @param {number} watchId - ID van de watch die moet worden gestopt
+ * @param {number|Object} watchInfo - ID van de watch of object met type en id
  */
-export const stopLocationTracking = (watchId) => {
-  if (watchId && navigator.geolocation) {
-    navigator.geolocation.clearWatch(watchId);
+export const stopLocationTracking = (watchInfo) => {
+  if (!watchInfo) return;
+  
+  if (typeof watchInfo === 'object') {
+    if (watchInfo.type === 'fallback') {
+      clearInterval(watchInfo.id);
+    } else if (watchInfo.type === 'geolocation' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchInfo.id);
+    }
+  } else if (navigator.geolocation) {
+    // Voor backward compatibility
+    navigator.geolocation.clearWatch(watchInfo);
   }
 };
 

@@ -9,6 +9,7 @@ export const VoiceProvider = ({ children }) => {
   const [transcript, setTranscript] = useState('');
   const [recognition, setRecognition] = useState(null);
   const [isSupported, setIsSupported] = useState(false);
+  const [finalTranscript, setFinalTranscript] = useState('');
 
   // Controleer of spraakherkenning wordt ondersteund
   useEffect(() => {
@@ -21,7 +22,7 @@ export const VoiceProvider = ({ children }) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      alert('Spraakherkenning wordt niet ondersteund in deze browser.');
+      console.error('Spraakherkenning wordt niet ondersteund in deze browser.');
       return;
     }
     
@@ -31,18 +32,36 @@ export const VoiceProvider = ({ children }) => {
     recognitionInstance.interimResults = true;
     
     recognitionInstance.onstart = () => {
+      console.log('Spraakherkenning gestart');
       setIsListening(true);
       setTranscript('');
+      setFinalTranscript('');
     };
     
     recognitionInstance.onresult = (event) => {
       const current = event.resultIndex;
       const currentTranscript = event.results[current][0].transcript;
+      console.log('Spraakherkenning resultaat:', currentTranscript);
+      
+      // Update de transcript
       setTranscript(currentTranscript);
+      
+      // Als dit een definitief resultaat is, update ook de finalTranscript
+      if (event.results[current].isFinal) {
+        console.log('Definitief resultaat:', currentTranscript);
+        setFinalTranscript(currentTranscript);
+      }
     };
     
     recognitionInstance.onend = () => {
+      console.log('Spraakherkenning gestopt');
       setIsListening(false);
+      
+      // Als er geen finalTranscript is, maar wel een transcript, gebruik dan de laatste transcript
+      if (!finalTranscript && transcript) {
+        console.log('Geen definitief resultaat, gebruik laatste transcript:', transcript);
+        setFinalTranscript(transcript);
+      }
     };
     
     recognitionInstance.onerror = (event) => {
@@ -50,14 +69,22 @@ export const VoiceProvider = ({ children }) => {
       setIsListening(false);
     };
     
-    recognitionInstance.start();
-    setRecognition(recognitionInstance);
-  }, []);
+    try {
+      recognitionInstance.start();
+      setRecognition(recognitionInstance);
+    } catch (error) {
+      console.error('Fout bij het starten van spraakherkenning:', error);
+    }
+  }, [transcript, finalTranscript]);
 
   // Stop met luisteren naar spraak
   const stopListening = useCallback(() => {
     if (recognition) {
-      recognition.stop();
+      try {
+        recognition.stop();
+      } catch (error) {
+        console.error('Fout bij het stoppen van spraakherkenning:', error);
+      }
     }
   }, [recognition]);
 
@@ -66,6 +93,7 @@ export const VoiceProvider = ({ children }) => {
     if (!text) return null;
     
     const lowerText = text.toLowerCase().trim();
+    console.log('Verwerken van commando:', lowerText);
     
     // Commando's voor wandelingen
     if (lowerText.includes('start wandeling') || lowerText.includes('begin wandeling')) {
@@ -91,6 +119,7 @@ export const VoiceProvider = ({ children }) => {
   const value = {
     isListening,
     transcript,
+    finalTranscript,
     isSupported,
     startListening,
     stopListening,

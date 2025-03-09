@@ -10,6 +10,7 @@ import NewWalkPage from './pages/NewWalkPage';
 import ActiveWalkPage from './pages/ActiveWalkPage';
 import WalkSummaryPage from './pages/WalkSummaryPage';
 import WalksPage from './pages/WalksPage';
+import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
@@ -25,15 +26,16 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             
             {/* Beveiligde routes */}
-            <Route element={<PrivateRoute />}>
+            <Route path="/" element={<PrivateRoute />}>
               <Route element={<Layout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/walks" element={<WalksPage />} />
-                <Route path="/new-walk" element={<NewWalkPage />} />
-                <Route path="/active-walk/:walkId" element={<ActiveWalkPage />} />
-                <Route path="/walk/:walkId" element={<WalkSummaryPage />} />
-                <Route path="/walk-summary/:walkId" element={<WalkSummaryPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route index element={<DashboardPage />} />
+                <Route path="walks" element={<WalksPage />} />
+                <Route path="new-walk" element={<NewWalkPage />} />
+                <Route path="active-walk/:walkId" element={<ActiveWalkPage />} />
+                <Route path="walk/:walkId" element={<WalkSummaryPage />} />
+                <Route path="walk-summary/:walkId" element={<WalkSummaryPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="settings" element={<SettingsPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Route>

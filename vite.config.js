@@ -37,4 +37,18 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    hmr: {
+      overlay: true, // Toon HMR-fouten als overlay in de browser
+    },
+    watch: {
+      usePolling: false, // Zet op true als bestandswijzigingen niet worden gedetecteerd
+    },
+    open: true, // Open automatisch de browser bij het starten van de server
+  },
+  build: {
+    sourcemap: true, // Genereer sourcemaps voor debugging
+    minify: 'terser', // Gebruik terser voor betere minificatie
+    target: 'esnext', // Moderne browsers
+  }
 })

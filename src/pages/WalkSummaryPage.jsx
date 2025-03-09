@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getWalk, getWalkObservations } from '../services/firestoreService';
 import { formatDate, formatTime, formatDuration, getDurationInMinutes } from '../utils/dateUtils';
 import { formatDistance } from '../services/locationService';
+import { suggestWalkToJournal, checkJournalApiSupport } from '../services/journalService';
 import MapComponent from '../components/MapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
 import ObservationItem from '../components/ObservationItem';
@@ -19,6 +20,13 @@ const WalkSummaryPage = () => {
   const [pathPoints, setPathPoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isJournalSupported, setIsJournalSupported] = useState(false);
+  const [sharingToJournal, setSharingToJournal] = useState(false);
+
+  // Controleer of Journal API wordt ondersteund
+  useEffect(() => {
+    setIsJournalSupported(checkJournalApiSupport());
+  }, []);
 
   // Haal wandelgegevens op
   useEffect(() => {
@@ -62,6 +70,63 @@ const WalkSummaryPage = () => {
       new Date(walk.startTime.seconds * 1000),
       new Date(walk.endTime.seconds * 1000)
     );
+  };
+
+  // Deel wandeling met Apple Journal
+  const handleShareToJournal = async () => {
+    if (!walk) return;
+    
+    try {
+      setSharingToJournal(true);
+      const success = await suggestWalkToJournal(walk, observations);
+      
+      if (success) {
+        alert('Wandeling succesvol gedeeld met Apple Journal');
+      } else {
+        alert('Kon wandeling niet delen met Apple Journal');
+      }
+    } catch (error) {
+      console.error('Fout bij het delen met Apple Journal:', error);
+      alert('Er is een fout opgetreden bij het delen met Apple Journal');
+    } finally {
+      setSharingToJournal(false);
+    }
+  };
+
+  // Deel wandeling via andere methoden
+  const handleShare = () => {
+    if (!walk) return;
+    
+    // Bereid de tekst voor
+    let shareText = `Wandeling: ${walk.name}\n`;
+    
+    if (walk.distance) {
+      shareText += `Afstand: ${formatDistance(walk.distance)}\n`;
+    }
+    
+    const duration = calculateDuration();
+    if (duration) {
+      shareText += `Duur: ${formatDuration(duration)}\n`;
+    }
+    
+    if (observations.length > 0) {
+      shareText += `Observaties: ${observations.length}\n`;
+    }
+    
+    // Gebruik de Web Share API als beschikbaar
+    if (navigator.share) {
+      navigator.share({
+        title: `Wandeling: ${walk.name}`,
+        text: shareText,
+        // URL zou naar je app kunnen verwijzen
+        url: window.location.href
+      }).catch(error => {
+        console.error('Fout bij het delen:', error);
+      });
+    } else {
+      // Fallback als Web Share API niet beschikbaar is
+      alert(`Deel deze wandeling:\n\n${shareText}`);
+    }
   };
 
   if (loading) {
@@ -208,17 +273,34 @@ const WalkSummaryPage = () => {
         )}
       </div>
       
-      {/* Deel knop */}
-      <div className="mt-6 flex justify-center">
+      {/* Deel knoppen */}
+      <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4">
         <button
           className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-          onClick={() => {
-            // Implementeer delen functionaliteit
-            alert('Delen functionaliteit nog niet geïmplementeerd');
-          }}
+          onClick={handleShare}
         >
           Deel deze wandeling
         </button>
+        
+        {isJournalSupported && (
+          <button
+            className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-900 transition-colors duration-200 flex items-center justify-center"
+            onClick={handleShareToJournal}
+            disabled={sharingToJournal}
+          >
+            {sharingToJournal ? (
+              <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+              </svg>
+            )}
+            Deel met Apple Journal
+          </button>
+        )}
       </div>
     </div>
   );

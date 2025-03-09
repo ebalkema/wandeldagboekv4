@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -11,13 +11,16 @@ const MapComponent = ({
   observations = [],
   height = '100%',
   zoom = 15,
-  showCurrentLocation = true
+  showCurrentLocation = true,
+  offlineMode = false
 }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const pathLayerRef = useRef(null);
   const markersLayerRef = useRef(null);
   const currentLocationMarkerRef = useRef(null);
+  const tileLayerRef = useRef(null);
+  const [mapError, setMapError] = useState(false);
 
   // Initialiseer de kaart
   useEffect(() => {
@@ -30,9 +33,23 @@ const MapComponent = ({
       mapInstanceRef.current = L.map(mapRef.current).setView(initialLocation, zoom);
       
       // Voeg OpenStreetMap tiles toe
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(mapInstanceRef.current);
+      try {
+        tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          // Voeg caching toe voor offline gebruik
+          useCache: true,
+          crossOrigin: true
+        }).addTo(mapInstanceRef.current);
+        
+        // Voeg een error handler toe voor offline modus
+        tileLayerRef.current.on('tileerror', (error) => {
+          console.log('Tile error:', error);
+          setMapError(true);
+        });
+      } catch (error) {
+        console.error('Fout bij het laden van kaart tiles:', error);
+        setMapError(true);
+      }
       
       // Maak lagen voor het pad en markers
       pathLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
@@ -133,7 +150,7 @@ const MapComponent = ({
             : [obs.location.lat, obs.location.lng];
           
           const marker = L.marker(location, {
-            icon: createCustomIcon('orange', 'observation')
+            icon: createCustomIcon(getObservationColor(obs.category), 'observation')
           }).addTo(markersLayerRef.current);
           
           // Maak een popup met de observatie-informatie
@@ -141,7 +158,8 @@ const MapComponent = ({
             <div class="observation-popup">
               <h3>${obs.category || 'Observatie'}</h3>
               <p>${obs.text}</p>
-              ${obs.timestamp ? `<small>${new Date(obs.timestamp.seconds * 1000).toLocaleTimeString()}</small>` : ''}
+              ${getTimestampDisplay(obs.timestamp)}
+              ${obs.pendingSync ? '<div style="color: #3B82F6; margin-top: 4px; font-size: 0.75rem;">Wacht op synchronisatie</div>' : ''}
             </div>
           `;
           
@@ -150,6 +168,44 @@ const MapComponent = ({
       });
     }
   }, [observations]);
+
+  // Functie om timestamp weer te geven
+  const getTimestampDisplay = (timestamp) => {
+    if (!timestamp) return '';
+    
+    try {
+      // Voor Firestore timestamp
+      if (timestamp.seconds) {
+        return `<small>${new Date(timestamp.seconds * 1000).toLocaleTimeString()}</small>`;
+      }
+      
+      // Voor ISO string (offline modus)
+      if (typeof timestamp === 'string') {
+        return `<small>${new Date(timestamp).toLocaleTimeString()}</small>`;
+      }
+    } catch (error) {
+      console.error('Fout bij het formatteren van timestamp:', error);
+    }
+    
+    return '';
+  };
+
+  // Functie om de kleur van een observatie te bepalen
+  const getObservationColor = (category) => {
+    switch (category?.toLowerCase()) {
+      case 'vogel':
+      case 'vogels':
+        return '#3B82F6'; // blue
+      case 'plant':
+      case 'planten':
+        return '#10B981'; // green
+      case 'dier':
+      case 'dieren':
+        return '#F59E0B'; // yellow
+      default:
+        return '#6B7280'; // gray
+    }
+  };
 
   // Functie om aangepaste markers te maken
   const createCustomIcon = (color, type) => {
@@ -187,16 +243,44 @@ const MapComponent = ({
   };
 
   return (
-    <div 
-      ref={mapRef} 
-      style={{ 
-        height, 
-        width: '100%',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }} 
-    />
+    <div style={{ position: 'relative', height, width: '100%' }}>
+      <div 
+        ref={mapRef} 
+        style={{ 
+          height: '100%', 
+          width: '100%',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }} 
+      />
+      
+      {/* Offline waarschuwing als er een kaartfout is */}
+      {(offlineMode || mapError) && (
+        <div 
+          style={{
+            position: 'absolute',
+            bottom: '10px',
+            left: '10px',
+            right: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            fontSize: '0.875rem',
+            color: '#B45309',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            zIndex: 1000
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <svg style={{ width: '16px', height: '16px', marginRight: '8px' }} fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Kaartgegevens beperkt beschikbaar in offline modus
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

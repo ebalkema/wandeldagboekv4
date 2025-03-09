@@ -5,9 +5,11 @@ import { useVoice } from '../context/VoiceContext';
 import { getCurrentLocation } from '../services/locationService';
 import { getCachedWeatherData } from '../services/weatherService';
 import { createWalk } from '../services/firestoreService';
+import { isOnline, saveOfflineWalk } from '../services/offlineService';
 import MapComponent from '../components/MapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
 import VoiceButton from '../components/VoiceButton';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 /**
  * Pagina voor het starten van een nieuwe wandeling
@@ -23,6 +25,22 @@ const NewWalkPage = () => {
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isOffline, setIsOffline] = useState(!isOnline());
+
+  // Controleer online status
+  useEffect(() => {
+    const handleOnlineStatusChange = () => {
+      setIsOffline(!isOnline());
+    };
+
+    window.addEventListener('online', handleOnlineStatusChange);
+    window.addEventListener('offline', handleOnlineStatusChange);
+
+    return () => {
+      window.removeEventListener('online', handleOnlineStatusChange);
+      window.removeEventListener('offline', handleOnlineStatusChange);
+    };
+  }, []);
 
   // Haal locatie en weer op
   useEffect(() => {
@@ -31,8 +49,11 @@ const NewWalkPage = () => {
         const currentLocation = await getCurrentLocation();
         setLocation(currentLocation);
         
-        const weatherData = await getCachedWeatherData(currentLocation.lat, currentLocation.lng);
-        setWeather(weatherData);
+        // Alleen weer ophalen als we online zijn
+        if (!isOffline) {
+          const weatherData = await getCachedWeatherData(currentLocation.lat, currentLocation.lng);
+          setWeather(weatherData);
+        }
       } catch (error) {
         console.error('Fout bij het ophalen van locatie of weer:', error);
         setError('Kon locatie of weergegevens niet ophalen. Controleer je locatietoestemming.');
@@ -40,7 +61,7 @@ const NewWalkPage = () => {
     };
     
     fetchLocationAndWeather();
-  }, []);
+  }, [isOffline]);
 
   // Verwerk spraakcommando's
   useEffect(() => {
@@ -65,12 +86,27 @@ const NewWalkPage = () => {
     try {
       setLoading(true);
       
-      const walkId = await createWalk(
-        currentUser.uid,
-        walkNameToUse,
-        location,
-        weather
-      );
+      let walkId;
+      
+      if (isOffline) {
+        console.log('Offline modus: wandeling opslaan in lokale opslag');
+        walkId = saveOfflineWalk({
+          userId: currentUser.uid,
+          name: walkNameToUse,
+          startLocation: location,
+          weather: weather,
+          startTime: new Date().toISOString(),
+          pathPoints: [{ lat: location.lat, lng: location.lng }]
+        });
+      } else {
+        console.log('Online modus: wandeling opslaan in Firestore');
+        walkId = await createWalk(
+          currentUser.uid,
+          walkNameToUse,
+          location,
+          weather
+        );
+      }
       
       navigate(`/active-walk/${walkId}`);
     } catch (error) {
@@ -90,6 +126,21 @@ const NewWalkPage = () => {
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Nieuwe wandeling</h1>
       
+      {/* Offline indicator */}
+      <OfflineIndicator />
+      
+      {/* Offline waarschuwing */}
+      {isOffline && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+          <div className="flex items-center">
+            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p>Je bent offline. Je wandeling wordt lokaal opgeslagen en gesynchroniseerd wanneer je weer online bent.</p>
+          </div>
+        </div>
+      )}
+      
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
@@ -101,6 +152,7 @@ const NewWalkPage = () => {
           <MapComponent 
             currentLocation={location ? [location.lat, location.lng] : null}
             height="100%"
+            offlineMode={isOffline}
           />
         </div>
         
@@ -110,6 +162,12 @@ const NewWalkPage = () => {
             
             {weather && (
               <WeatherDisplay weather={weather} size="small" />
+            )}
+            
+            {isOffline && !weather && (
+              <div className="text-sm text-yellow-600">
+                Weergegevens niet beschikbaar in offline modus
+              </div>
             )}
           </div>
           
