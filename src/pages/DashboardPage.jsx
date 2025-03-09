@@ -8,6 +8,7 @@ import { useVoice } from '../context/VoiceContext';
 import WalkCard from '../components/WalkCard';
 import VoiceButton from '../components/VoiceButton';
 import WeatherDisplay from '../components/WeatherDisplay';
+import { FaPodcast, FaHeadphones } from 'react-icons/fa';
 
 /**
  * Dashboard pagina
@@ -62,12 +63,17 @@ const DashboardPage = () => {
 
   // Verwerk spraakcommando's
   const handleVoiceCommand = (text) => {
+    if (!text) return;
+    
     const command = processCommand(text);
     
     if (command) {
       switch (command.type) {
-        case 'START_WALK':
+        case 'NEW_WALK':
           navigate('/new-walk');
+          break;
+        case 'VIEW_WALKS':
+          navigate('/walks');
           break;
         default:
           // Geen actie voor andere commando's
@@ -76,19 +82,15 @@ const DashboardPage = () => {
     }
   };
 
-  // Actieve wandeling
+  // Vind actieve wandeling
   const activeWalk = walks.find(walk => !walk.endTime);
 
   return (
-    <div className="max-w-full">
-      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Dashboard</h1>
-        
-        {weather && (
-          <div className="self-end sm:self-auto">
-            <WeatherDisplay weather={weather} size="medium" />
-          </div>
-        )}
+    <div>
+      {/* Header met weer */}
+      <div className="flex justify-between items-start mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        {weather && <WeatherDisplay weather={weather} />}
       </div>
 
       {error && (
@@ -97,72 +99,75 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* Actieve wandeling sectie */}
-      {activeWalk ? (
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Actieve wandeling</h2>
-            <Link 
-              to={`/active-walk/${activeWalk.id}`}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              Ga naar wandeling
-            </Link>
-          </div>
-          
-          <WalkCard walk={activeWalk} />
-        </div>
-      ) : (
-        <div className="mb-6 sm:mb-8 bg-white rounded-lg shadow-md p-4 sm:p-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3">Start een nieuwe wandeling</h2>
-          
-          <p className="text-gray-600 mb-4">
-            Begin een nieuwe wandeling om je route en observaties vast te leggen.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <Link
-              to="/new-walk"
-              className="w-full sm:w-auto bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-center"
-            >
-              Nieuwe wandeling
-            </Link>
-            
-            <div className="flex flex-col items-center">
-              <p className="text-sm text-gray-500 mb-2">Of gebruik je stem</p>
-              <VoiceButton 
-                onResult={handleVoiceCommand}
-                label="Spreek"
-                color="primary"
-                size="medium"
-              />
+      {/* Podcast sectie */}
+      <div className="bg-primary-50 rounded-lg shadow-md p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="bg-primary-100 p-3 rounded-full mr-3">
+              <FaPodcast className="text-primary-600 text-xl" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-800">Menno & Erwin Podcast</h2>
+              <p className="text-sm text-gray-600">Ontdek de natuur met onze podcast</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Recente wandelingen sectie */}
-      <div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Recente wandelingen</h2>
           <Link 
-            to="/walks"
-            className="text-blue-600 hover:text-blue-800"
+            to="/podcast" 
+            className="bg-primary-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-primary-700 transition-colors flex items-center"
           >
-            Bekijk alle
+            <FaHeadphones className="mr-1" />
+            Beluisteren
+          </Link>
+        </div>
+      </div>
+
+      {/* Actieve wandeling */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Actieve wandeling</h2>
+        
+        {loading ? (
+          <div className="bg-white rounded-lg shadow-md p-4 text-center">
+            <svg className="animate-spin h-6 w-6 text-primary-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+        ) : activeWalk ? (
+          <WalkCard walk={activeWalk} />
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-4 text-center">
+            <p className="text-gray-600 mb-4">Je hebt geen actieve wandeling.</p>
+            <Link
+              to="/new-walk"
+              className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors duration-200 inline-flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Start een nieuwe wandeling
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Recente wandelingen */}
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">Recente wandelingen</h2>
+          <Link to="/walks" className="text-primary-600 hover:underline text-sm">
+            Bekijk alle wandelingen
           </Link>
         </div>
         
         {loading ? (
-          <div className="text-center py-6 sm:py-8">
-            <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg shadow-md p-4 text-center">
+            <svg className="animate-spin h-6 w-6 text-primary-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p className="mt-2 text-gray-600">Wandelingen laden...</p>
           </div>
         ) : walks.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 text-center">
+          <div className="bg-white rounded-lg shadow-md p-4 text-center">
             <p className="text-gray-600">Je hebt nog geen wandelingen. Start je eerste wandeling!</p>
           </div>
         ) : (
@@ -175,6 +180,15 @@ const DashboardPage = () => {
               ))}
           </div>
         )}
+      </div>
+
+      {/* Spraakcommando knop */}
+      <div className="fixed bottom-20 right-4 z-30">
+        <VoiceButton 
+          onResult={handleVoiceCommand}
+          label="Spraakcommando"
+          listeningLabel="Luisteren..."
+        />
       </div>
     </div>
   );

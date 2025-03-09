@@ -11,6 +11,7 @@ import ActiveWalkPage from './pages/ActiveWalkPage';
 import WalkSummaryPage from './pages/WalkSummaryPage';
 import WalksPage from './pages/WalksPage';
 import ProfilePage from './pages/ProfilePage';
+import PodcastPage from './pages/PodcastPage';
 import SettingsPage from './pages/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
@@ -35,6 +36,7 @@ function App() {
                 <Route path="walk/:walkId" element={<WalkSummaryPage />} />
                 <Route path="walk-summary/:walkId" element={<WalkSummaryPage />} />
                 <Route path="profile" element={<ProfilePage />} />
+                <Route path="podcast" element={<PodcastPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

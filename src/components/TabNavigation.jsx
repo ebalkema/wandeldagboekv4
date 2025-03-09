@@ -3,6 +3,7 @@ import { FaHome } from 'react-icons/fa';
 import { FaWalking } from 'react-icons/fa';
 import { FaUser } from 'react-icons/fa';
 import { FaPlus } from 'react-icons/fa';
+import { FaPodcast } from 'react-icons/fa';
 
 /**
  * Component voor tabblad-navigatie onderaan het scherm
@@ -24,6 +25,7 @@ const TabNavigation = () => {
     if (path === '/' && currentPath === '/') return true;
     if (path === '/walks' && currentPath === '/walks') return true;
     if (path === '/profile' && currentPath === '/profile') return true;
+    if (path === '/podcast' && currentPath === '/podcast') return true;
     return false;
   };
   
@@ -61,6 +63,17 @@ const TabNavigation = () => {
             <FaPlus className="text-lg" />
           </div>
           <span className="text-xs text-gray-500">Nieuw</span>
+        </Link>
+        
+        {/* Podcast tab */}
+        <Link 
+          to="/podcast" 
+          className={`flex flex-col items-center justify-center w-full h-full ${
+            isActive('/podcast') ? 'text-primary-600' : 'text-gray-500'
+          }`}
+        >
+          <FaPodcast className="text-xl mb-1" />
+          <span className="text-xs">Podcast</span>
         </Link>
         
         {/* Profiel tab */}

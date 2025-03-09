@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { FaLeaf } from 'react-icons/fa';
+import { FaLeaf, FaPodcast } from 'react-icons/fa';
 
 /**
  * Component voor de navigatiebalk
@@ -16,6 +16,7 @@ const Header = () => {
     if (currentPath.includes('/active-walk/')) return 'Actieve wandeling';
     if (currentPath.includes('/walk-summary/') || currentPath.includes('/walk/')) return 'Wandelsamenvatting';
     if (currentPath === '/profile') return 'Profiel';
+    if (currentPath === '/podcast') return 'Menno & Erwin Podcast';
     if (currentPath === '/settings') return 'Instellingen';
     return 'Wandeldagboek';
   };
@@ -23,13 +24,20 @@ const Header = () => {
   // Controleer of we op een actieve wandelingspagina zijn
   const isActivePage = currentPath.includes('/active-walk/');
   
+  // Controleer of we op de podcast pagina zijn
+  const isPodcastPage = currentPath === '/podcast';
+  
   return (
     <header className="bg-primary-600 text-white shadow-md">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           {/* Logo en titel */}
           <Link to="/" className="flex items-center">
-            <FaLeaf className="h-6 w-6 mr-2 flex-shrink-0" />
+            {isPodcastPage ? (
+              <FaPodcast className="h-6 w-6 mr-2 flex-shrink-0" />
+            ) : (
+              <FaLeaf className="h-6 w-6 mr-2 flex-shrink-0" />
+            )}
             <span className="text-lg font-bold truncate">{getTitle()}</span>
           </Link>
 
@@ -56,14 +64,13 @@ const Header = () => {
       
       {/* Podcast banner */}
       <div className="bg-secondary-600 text-white text-xs py-1 text-center">
-        <a 
-          href="https://www.mennoenerwin.nl" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="hover:underline"
+        <Link 
+          to="/podcast"
+          className="hover:underline flex items-center justify-center"
         >
-          Ontdek de natuur met de Menno & Erwin podcast - Bezoek www.mennoenerwin.nl
-        </a>
+          <FaPodcast className="mr-1" />
+          Ontdek de natuur met de Menno & Erwin podcast - Bekijk de nieuwste afleveringen
+        </Link>
       </div>
     </header>
   );
