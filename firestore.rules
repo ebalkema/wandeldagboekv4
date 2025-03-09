@@ -1,0 +1,34 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Basisregel: geen toegang tenzij expliciet toegestaan
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Gebruikers collectie
+    match /users/{userId} {
+      // Gebruikers kunnen alleen hun eigen document lezen en schrijven
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Wandelingen collectie
+    match /walks/{walkId} {
+      // Gebruikers kunnen hun eigen wandelingen lezen en schrijven
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Nieuwe wandelingen aanmaken
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Observaties collectie
+    match /observations/{observationId} {
+      // Gebruikers kunnen observaties lezen en schrijven als ze eigenaar zijn van de wandeling
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/walks/$(resource.data.walkId)) && 
+                          get(/databases/$(database)/documents/walks/$(resource.data.walkId)).data.userId == request.auth.uid;
+      // Nieuwe observaties aanmaken
+      allow create: if request.auth != null && exists(/databases/$(database)/documents/walks/$(request.resource.data.walkId)) && 
+                    get(/databases/$(database)/documents/walks/$(request.resource.data.walkId)).data.userId == request.auth.uid;
+    }
+  }
+}
