@@ -144,15 +144,23 @@ export const updateWalk = async (walkId, data) => {
  * @param {string} walkId - ID van de wandeling
  * @param {Object} endLocation - Eindlocatie {lat, lng}
  * @param {number} distance - Afgelegde afstand in meters
+ * @param {Array} pathPoints - Array van locatiepunten
  * @returns {Promise<void>}
  */
-export const endWalk = async (walkId, endLocation, distance) => {
+export const endWalk = async (walkId, endLocation, distance, pathPoints = null) => {
   try {
-    await updateDoc(doc(db, 'walks', walkId), {
+    const updateData = {
       endTime: serverTimestamp(),
       endLocation,
       distance
-    });
+    };
+    
+    // Voeg pathPoints toe als deze zijn meegegeven
+    if (pathPoints) {
+      updateData.pathPoints = pathPoints;
+    }
+    
+    await updateDoc(doc(db, 'walks', walkId), updateData);
   } catch (error) {
     console.error('Fout bij het beëindigen van wandeling:', error);
     throw error;

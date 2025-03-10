@@ -311,15 +311,24 @@ const ActiveWalkPage = () => {
         // Bereken de afstand
         const calculatedDistance = calculateRouteDistance(updatedPathPoints);
         
+        // Converteer de array van arrays naar een array van objecten voor Firestore
+        // Firestore ondersteunt geen geneste arrays
+        const pathPointsForFirestore = updatedPathPoints.map((point, index) => ({
+          lat: point[0],
+          lng: point[1],
+          index: index, // Index toevoegen voor sortering
+          timestamp: new Date().toISOString()
+        }));
+        
         // Update de wandeling in de database
         if (isOffline) {
           updateOfflineWalk(walkId, {
-            pathPoints: updatedPathPoints,
+            pathPoints: pathPointsForFirestore,
             distance: calculatedDistance
           });
         } else {
           await updateWalk(walkId, {
-            pathPoints: updatedPathPoints,
+            pathPoints: pathPointsForFirestore,
             distance: calculatedDistance
           });
         }
@@ -355,12 +364,31 @@ const ActiveWalkPage = () => {
       
       console.log(`Wandeling beëindigen met ID: ${walkId}, locatie:`, endLocationData, 'afstand:', distance);
       
+      // Converteer het volledige pad naar objecten voor Firestore
+      const pathPointsForFirestore = pathPoints.map((point, index) => {
+        // Controleer of het punt al een object is
+        if (typeof point === 'object' && !Array.isArray(point) && point !== null) {
+          return {
+            ...point,
+            index: index
+          };
+        }
+        
+        // Anders, converteer van array naar object
+        return {
+          lat: point[0],
+          lng: point[1],
+          index: index,
+          timestamp: new Date().toISOString()
+        };
+      });
+      
       if (isOffline) {
         console.log('Offline modus: wandeling beëindigen in lokale opslag');
-        endOfflineWalk(walkId, endLocationData, distance);
+        endOfflineWalk(walkId, endLocationData, distance, pathPointsForFirestore);
       } else {
         console.log('Online modus: wandeling beëindigen in Firestore');
-        await endWalk(walkId, endLocationData, distance);
+        await endWalk(walkId, endLocationData, distance, pathPointsForFirestore);
       }
       
       // Toon een bevestiging

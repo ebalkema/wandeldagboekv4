@@ -72,35 +72,51 @@ const WalkSummaryPage = () => {
         setObservations(uniqueObservations);
         
         // Zet pathPoints
-        if (walkData.pathPoints && walkData.pathPoints.length > 0) {
-          // Controleer of pathPoints een array is of een object met geneste arrays
+        if (walkData.pathPoints && Object.keys(walkData.pathPoints).length > 0) {
+          // Converteer pathPoints naar het juiste formaat voor de kaart
           let points = [];
           
+          // Controleer of pathPoints een array is
           if (Array.isArray(walkData.pathPoints)) {
-            // Controleer of het eerste element een array of een object is
-            if (walkData.pathPoints.length > 0) {
-              if (Array.isArray(walkData.pathPoints[0])) {
-                // Het is al een array van arrays [lat, lng]
-                points = walkData.pathPoints;
-              } else if (typeof walkData.pathPoints[0] === 'object') {
-                // Het is een array van objecten {lat, lng}
-                points = walkData.pathPoints.map(point => [point.lat, point.lng]);
+            // Sorteer op index als beschikbaar
+            const sortedPoints = [...walkData.pathPoints].sort((a, b) => {
+              if (a.index !== undefined && b.index !== undefined) {
+                return a.index - b.index;
               }
-            }
-          } else if (typeof walkData.pathPoints === 'object') {
-            // Het kan een object zijn met geneste arrays
+              return 0;
+            });
+            
+            // Converteer naar [lat, lng] formaat voor de kaart
+            points = sortedPoints.map(point => {
+              if (Array.isArray(point)) {
+                return point; // Al in het juiste formaat
+              } else if (point.lat !== undefined && point.lng !== undefined) {
+                return [point.lat, point.lng];
+              }
+              return null;
+            }).filter(point => point !== null);
+          } else {
+            // Het kan een object zijn met geneste punten
             const keys = Object.keys(walkData.pathPoints);
-            if (keys.length > 0) {
-              points = keys.map(key => {
-                const point = walkData.pathPoints[key];
-                if (Array.isArray(point)) {
-                  return point;
-                } else if (typeof point === 'object') {
-                  return [point.lat, point.lng];
-                }
-                return null;
-              }).filter(point => point !== null);
-            }
+            // Sorteer de keys numeriek als mogelijk
+            const sortedKeys = keys.sort((a, b) => {
+              const numA = parseInt(a);
+              const numB = parseInt(b);
+              if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+              }
+              return 0;
+            });
+            
+            points = sortedKeys.map(key => {
+              const point = walkData.pathPoints[key];
+              if (Array.isArray(point)) {
+                return point;
+              } else if (point && point.lat !== undefined && point.lng !== undefined) {
+                return [point.lat, point.lng];
+              }
+              return null;
+            }).filter(point => point !== null);
           }
           
           console.log(`Wandelpad punten: ${points.length}`);

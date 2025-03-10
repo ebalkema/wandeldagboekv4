@@ -119,18 +119,42 @@ export const updateOfflineWalk = (walkId, updateData) => {
 };
 
 /**
- * Beëindig een offline wandeling
+ * Beëindigt een offline wandeling
  * @param {string} walkId - ID van de wandeling
- * @param {Object} endLocation - Eindlocatie
- * @param {number} distance - Afgelegde afstand
- * @returns {boolean} - True als succesvol, anders false
+ * @param {Object} endLocation - Eindlocatie {lat, lng}
+ * @param {number} distance - Afgelegde afstand in meters
+ * @param {Array} pathPoints - Array van locatiepunten
  */
-export const endOfflineWalk = (walkId, endLocation, distance) => {
-  return updateOfflineWalk(walkId, {
-    endTime: new Date().toISOString(),
-    endLocation,
-    distance
-  });
+export const endOfflineWalk = (walkId, endLocation, distance, pathPoints = null) => {
+  try {
+    // Haal bestaande wandelingen op
+    const walks = getOfflineWalks();
+    
+    // Zoek de wandeling
+    const walkIndex = walks.findIndex(walk => walk.id === walkId);
+    
+    if (walkIndex !== -1) {
+      // Update de wandeling
+      walks[walkIndex].endTime = new Date().toISOString();
+      walks[walkIndex].endLocation = endLocation;
+      walks[walkIndex].distance = distance;
+      walks[walkIndex].pendingSync = true;
+      
+      // Voeg pathPoints toe als deze zijn meegegeven
+      if (pathPoints) {
+        walks[walkIndex].pathPoints = pathPoints;
+      }
+      
+      // Sla op in localStorage
+      localStorage.setItem('offlineWalks', JSON.stringify(walks));
+      
+      console.log('Offline wandeling beëindigd:', walkId);
+    } else {
+      console.error('Offline wandeling niet gevonden:', walkId);
+    }
+  } catch (error) {
+    console.error('Fout bij het beëindigen van offline wandeling:', error);
+  }
 };
 
 /**
