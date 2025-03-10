@@ -1,7 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import TabNavigation from './TabNavigation';
-import { FaHeart } from 'react-icons/fa';
+import { FaHeart, FaExternalLinkAlt } from 'react-icons/fa';
+
+// Website URL
+const WEBSITE_URL = 'https://www.mennoenerwin.nl';
 
 /**
  * Component voor de algemene pagina-layout
@@ -22,23 +25,25 @@ const Layout = () => {
           <p className="flex items-center justify-center">
             Gemaakt met <FaHeart className="text-red-500 mx-1" /> door{' '}
             <a 
-              href="https://www.mennoenerwin.nl" 
+              href={`${WEBSITE_URL}/over-ons`} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="ml-1 underline hover:text-primary-200"
+              className="ml-1 underline hover:text-primary-200 flex items-center"
             >
               Menno & Erwin
+              <FaExternalLinkAlt className="ml-1 h-3 w-3" />
             </a>
           </p>
           <p className="mt-1 text-primary-200 text-xs">
             Bezoek{' '}
             <a 
-              href="https://www.mennoenerwin.nl" 
+              href={`${WEBSITE_URL}/afleveringen`} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="underline hover:text-white"
+              className="underline hover:text-white flex items-center inline-flex"
             >
               www.mennoenerwin.nl
+              <FaExternalLinkAlt className="ml-1 h-2 w-2" />
             </a>
             {' '}voor onze natuurpodcast
           </p>

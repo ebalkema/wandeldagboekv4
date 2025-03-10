@@ -44,7 +44,28 @@ const WalkSummaryPage = () => {
         
         // Haal observaties op
         const observationsData = await getWalkObservations(walkId);
-        setObservations(observationsData);
+        
+        // Verwijder dubbele observaties op basis van ID of inhoud
+        const uniqueObservations = [];
+        const observationIds = new Set();
+        const observationTexts = new Set();
+        
+        observationsData.forEach(obs => {
+          // Als de observatie al is toegevoegd op basis van ID, sla over
+          if (observationIds.has(obs.id)) return;
+          
+          // Als er een zeer vergelijkbare observatie is (zelfde tekst en locatie), sla over
+          const obsKey = `${obs.text}-${obs.location?.lat}-${obs.location?.lng}`;
+          if (observationTexts.has(obsKey)) return;
+          
+          // Voeg toe aan unieke observaties
+          uniqueObservations.push(obs);
+          observationIds.add(obs.id);
+          observationTexts.add(obsKey);
+        });
+        
+        console.log(`Origineel aantal observaties: ${observationsData.length}, Na deduplicatie: ${uniqueObservations.length}`);
+        setObservations(uniqueObservations);
         
         // Zet pathPoints
         if (walkData.pathPoints && walkData.pathPoints.length > 0) {

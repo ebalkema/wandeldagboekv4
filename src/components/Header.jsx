@@ -1,5 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-import { FaLeaf, FaPodcast } from 'react-icons/fa';
+import { FaLeaf, FaPodcast, FaExternalLinkAlt } from 'react-icons/fa';
+
+// Website URL
+const WEBSITE_URL = 'https://www.mennoenerwin.nl';
 
 /**
  * Component voor de navigatiebalk
@@ -51,12 +54,13 @@ const Header = () => {
             </Link>
           ) : (
             <a
-              href="https://www.mennoenerwin.nl"
+              href={WEBSITE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-white/80 hover:text-white transition-colors duration-200 flex items-center"
             >
-              <span>Door Menno & Erwin</span>
+              <span>Bezoek www.mennoenerwin.nl</span>
+              <FaExternalLinkAlt className="ml-1 h-3 w-3" />
             </a>
           )}
         </div>
@@ -64,13 +68,16 @@ const Header = () => {
       
       {/* Podcast banner */}
       <div className="bg-secondary-600 text-white text-xs py-1 text-center">
-        <Link 
-          to="/podcast"
+        <a 
+          href={`${WEBSITE_URL}/afleveringen`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="hover:underline flex items-center justify-center"
         >
           <FaPodcast className="mr-1" />
           Ontdek de natuur met de Menno & Erwin podcast - Bekijk de nieuwste afleveringen
-        </Link>
+          <FaExternalLinkAlt className="ml-1 h-3 w-3" />
+        </a>
       </div>
     </header>
   );
