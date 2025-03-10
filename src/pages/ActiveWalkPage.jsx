@@ -128,47 +128,74 @@ const ActiveWalkPage = () => {
     
     const startTracking = () => {
       try {
-        const watchId = startLocationTracking((location) => {
-          const newLocation = [location.lat, location.lng];
-          setCurrentLocation(newLocation);
-          
-          // Update pathPoints
-          setPathPoints(prev => {
-            if (prev.length === 0) {
-              return [newLocation];
+        const watchId = startLocationTracking(
+          (location) => {
+            // Callback voor succesvolle locatie updates
+            const newLocation = [location.lat, location.lng];
+            setCurrentLocation(newLocation);
+            
+            // Als dit een fallback locatie is, toon een waarschuwing
+            if (location.isDefault && !error) {
+              setError('Locatie niet beschikbaar. Gebruik een apparaat met GPS voor nauwkeurige tracking.');
+            } else if (error && !location.isDefault) {
+              // Als we weer een echte locatie hebben, verwijder de foutmelding
+              setError('');
             }
             
-            // Controleer of de nieuwe locatie significant verschilt van de vorige
-            const lastPoint = prev[prev.length - 1];
-            const latDiff = Math.abs(lastPoint[0] - newLocation[0]);
-            const lngDiff = Math.abs(lastPoint[1] - newLocation[1]);
+            // Update pathPoints
+            setPathPoints(prev => {
+              if (prev.length === 0) {
+                return [newLocation];
+              }
+              
+              // Controleer of de nieuwe locatie significant verschilt van de vorige
+              const lastPoint = prev[prev.length - 1];
+              const latDiff = Math.abs(lastPoint[0] - newLocation[0]);
+              const lngDiff = Math.abs(lastPoint[1] - newLocation[1]);
+              
+              // Alleen toevoegen als de locatie significant is veranderd
+              if (latDiff > 0.00001 || lngDiff > 0.00001) {
+                const newPoints = [...prev, newLocation];
+                
+                // Update de wandeling in Firestore of lokale opslag
+                updateWalkPath(newPoints);
+                
+                // Bereken afstand
+                const calculatedDistance = calculateRouteDistance(newPoints);
+                setDistance(calculatedDistance);
+                
+                return newPoints;
+              }
+              
+              return prev;
+            });
+          },
+          (error, consecutiveErrors) => {
+            // Callback voor locatiefouten
+            console.error('Locatiefout in ActiveWalkPage:', error.message);
             
-            // Alleen toevoegen als de locatie significant is veranderd
-            if (latDiff > 0.00001 || lngDiff > 0.00001) {
-              const newPoints = [...prev, newLocation];
-              
-              // Update de wandeling in Firestore of lokale opslag
-              updateWalkPath(newPoints);
-              
-              // Bereken afstand
-              const calculatedDistance = calculateRouteDistance(newPoints);
-              setDistance(calculatedDistance);
-              
-              return newPoints;
+            // Toon alleen een foutmelding als er meerdere fouten achter elkaar zijn
+            if (consecutiveErrors >= 3) {
+              setError(`Locatieproblemen: ${error.message}. Probeer naar buiten te gaan of controleer je locatietoestemming.`);
             }
-            
-            return prev;
-          });
-        });
+          }
+        );
         
         watchIdRef.current = watchId;
       } catch (error) {
         console.error('Fout bij het starten van locatie tracking:', error);
-        setError('Kon locatie tracking niet starten');
+        setError('Kon locatie tracking niet starten. Controleer of je locatietoestemming hebt gegeven.');
       }
     };
     
-    startTracking();
+    // Controleer eerst of locatieservices beschikbaar zijn
+    checkLocationAvailability().then(available => {
+      if (available) {
+        startTracking();
+      } else {
+        setError('Locatieservices zijn niet beschikbaar. Controleer je browserinstellingen en geef toestemming voor locatietoegang.');
+      }
+    });
     
     // Haal weergegevens op als we online zijn
     if (!isOffline) {
@@ -179,6 +206,7 @@ const ActiveWalkPage = () => {
     return () => {
       if (watchIdRef.current) {
         stopLocationTracking(watchIdRef.current);
+        watchIdRef.current = null;
       }
     };
   }, [walkId, isOffline]);
