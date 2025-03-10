@@ -415,7 +415,7 @@ const ActiveWalkPage = () => {
 
   // Start observatie opname
   const handleStartObservation = () => {
-    setIsRecordingObservation(true);
+    handleShowObservationModal();
   };
 
   // Verwerk spraakcommando's
