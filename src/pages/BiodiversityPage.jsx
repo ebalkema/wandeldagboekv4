@@ -10,6 +10,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import LazyMapComponent from '../components/LazyMapComponent';
 
+// Fallback locatie (Amsterdam)
+const FALLBACK_LOCATION = {
+  latitude: 52.3676,
+  longitude: 4.9041
+};
+
 const BiodiversityPage = () => {
   const { currentUser } = useAuth();
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -28,6 +34,7 @@ const BiodiversityPage = () => {
   const [speciesGroups, setSpeciesGroups] = useState([]);
   const [selectedSpecies, setSelectedSpecies] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [usingFallbackLocation, setUsingFallbackLocation] = useState(false);
   
   // Haal de huidige locatie op
   useEffect(() => {
@@ -38,14 +45,20 @@ const BiodiversityPage = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
           });
+          setUsingFallbackLocation(false);
         },
         (error) => {
           console.error('Fout bij het ophalen van locatie:', error);
-          setError('Kon je locatie niet bepalen. Controleer je locatie-instellingen.');
-        }
+          setError('Kon je locatie niet bepalen. Een standaardlocatie wordt gebruikt.');
+          setCurrentLocation(FALLBACK_LOCATION);
+          setUsingFallbackLocation(true);
+        },
+        { timeout: 10000, maximumAge: 60000 }
       );
     } else {
-      setError('Geolocatie wordt niet ondersteund door je browser.');
+      setError('Geolocatie wordt niet ondersteund door je browser. Een standaardlocatie wordt gebruikt.');
+      setCurrentLocation(FALLBACK_LOCATION);
+      setUsingFallbackLocation(true);
     }
   }, []);
   
@@ -62,6 +75,7 @@ const BiodiversityPage = () => {
         setSpeciesGroups(groups);
       } catch (err) {
         console.error('Fout bij het ophalen van taxonomische groepen:', err);
+        // Fallback wordt automatisch gebruikt door de searchTaxa functie
       }
     };
     
@@ -74,7 +88,10 @@ const BiodiversityPage = () => {
       if (!currentLocation) return;
       
       setLoading(true);
-      setError(null);
+      setError(usingFallbackLocation ? 
+        'Kon je locatie niet bepalen. Gegevens worden getoond voor een standaardlocatie.' : 
+        null
+      );
       
       try {
         const options = {
@@ -104,14 +121,17 @@ const BiodiversityPage = () => {
         }
       } catch (err) {
         console.error('Fout bij het ophalen van biodiversiteitsgegevens:', err);
-        setError('Kon geen biodiversiteitsgegevens ophalen. Probeer het later opnieuw.');
+        setError(usingFallbackLocation ?
+          'Kon je locatie niet bepalen en er was een probleem bij het ophalen van biodiversiteitsgegevens.' :
+          'Kon geen biodiversiteitsgegevens ophalen. Probeer het later opnieuw.'
+        );
       } finally {
         setLoading(false);
       }
     };
     
     fetchBiodiversityData();
-  }, [currentLocation, radius, dateRange, selectedSpeciesGroups, mapBounds]);
+  }, [currentLocation, radius, dateRange, selectedSpeciesGroups, mapBounds, usingFallbackLocation]);
   
   // Filter soorten op basis van zoekopdracht
   const filteredSpecies = searchQuery 
@@ -163,6 +183,21 @@ const BiodiversityPage = () => {
         <FaLeaf className="text-primary-500 mr-2" />
         Biodiversiteit Verkenner
       </h1>
+      
+      {usingFallbackLocation && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FaMapMarkerAlt className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                Je locatie kon niet worden bepaald. Gegevens worden getoond voor een standaardlocatie.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Zoekbalk */}
       <div className="mb-4 relative">

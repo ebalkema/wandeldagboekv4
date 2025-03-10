@@ -5,6 +5,63 @@
 
 const API_BASE_URL = 'https://api.biodiversitydata.nl';
 
+// Fallback taxonomische groepen voor het geval de API niet beschikbaar is
+const FALLBACK_TAXA = [
+  { id: 'aves', name: 'Vogels', scientificName: 'Aves' },
+  { id: 'mammalia', name: 'Zoogdieren', scientificName: 'Mammalia' },
+  { id: 'plantae', name: 'Planten', scientificName: 'Plantae' },
+  { id: 'insecta', name: 'Insecten', scientificName: 'Insecta' },
+  { id: 'amphibia', name: 'Amfibieën', scientificName: 'Amphibia' },
+  { id: 'reptilia', name: 'Reptielen', scientificName: 'Reptilia' },
+  { id: 'fungi', name: 'Paddenstoelen', scientificName: 'Fungi' }
+];
+
+// Fallback soorten voor het geval de API niet beschikbaar is
+const FALLBACK_SPECIES = [
+  { 
+    id: 'turdus-merula', 
+    scientificName: 'Turdus merula', 
+    vernacularName: { nl: 'Merel' },
+    speciesGroup: 'Vogels',
+    observationCount: 120
+  },
+  { 
+    id: 'parus-major', 
+    scientificName: 'Parus major', 
+    vernacularName: { nl: 'Koolmees' },
+    speciesGroup: 'Vogels',
+    observationCount: 95
+  },
+  { 
+    id: 'vulpes-vulpes', 
+    scientificName: 'Vulpes vulpes', 
+    vernacularName: { nl: 'Vos' },
+    speciesGroup: 'Zoogdieren',
+    observationCount: 15
+  },
+  { 
+    id: 'sciurus-vulgaris', 
+    scientificName: 'Sciurus vulgaris', 
+    vernacularName: { nl: 'Eekhoorn' },
+    speciesGroup: 'Zoogdieren',
+    observationCount: 25
+  },
+  { 
+    id: 'taraxacum-officinale', 
+    scientificName: 'Taraxacum officinale', 
+    vernacularName: { nl: 'Paardenbloem' },
+    speciesGroup: 'Planten',
+    observationCount: 200
+  },
+  { 
+    id: 'bellis-perennis', 
+    scientificName: 'Bellis perennis', 
+    vernacularName: { nl: 'Madeliefje' },
+    speciesGroup: 'Planten',
+    observationCount: 180
+  }
+];
+
 /**
  * Zoekt naar soorten in een bepaald gebied
  * @param {number} latitude - Breedtegraad van het centrum van het zoekgebied
@@ -32,15 +89,33 @@ export const getSpeciesInArea = async (latitude, longitude, radius = 1000, optio
     );
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij getSpeciesInArea: ${response.status}. Fallback data wordt gebruikt.`);
+      return filterFallbackSpecies(speciesGroups);
     }
     
     const data = await response.json();
     return data.species || [];
   } catch (error) {
     console.error('Fout bij het ophalen van soorten in gebied:', error);
-    return [];
+    return filterFallbackSpecies(options?.speciesGroups);
   }
+};
+
+/**
+ * Filtert fallback soorten op basis van geselecteerde soortgroepen
+ * @param {Array} speciesGroups - Array met geselecteerde soortgroepen
+ * @returns {Array} - Gefilterde array met soorten
+ */
+const filterFallbackSpecies = (speciesGroups) => {
+  if (!speciesGroups || speciesGroups.length === 0) {
+    return FALLBACK_SPECIES;
+  }
+  
+  return FALLBACK_SPECIES.filter(species => 
+    speciesGroups.some(group => 
+      FALLBACK_TAXA.find(taxon => taxon.id === group)?.name === species.speciesGroup
+    )
+  );
 };
 
 /**
@@ -53,13 +128,14 @@ export const getSpeciesDetails = async (speciesId) => {
     const response = await fetch(`${API_BASE_URL}/v2/species/${speciesId}`);
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij getSpeciesDetails: ${response.status}. Fallback data wordt gebruikt.`);
+      return FALLBACK_SPECIES.find(s => s.id === speciesId) || null;
     }
     
     return await response.json();
   } catch (error) {
     console.error(`Fout bij het ophalen van soortdetails voor ${speciesId}:`, error);
-    return null;
+    return FALLBACK_SPECIES.find(s => s.id === speciesId) || null;
   }
 };
 
@@ -73,7 +149,8 @@ export const getSpeciesMedia = async (speciesId) => {
     const response = await fetch(`${API_BASE_URL}/v2/species/${speciesId}/media`);
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij getSpeciesMedia: ${response.status}. Geen media beschikbaar.`);
+      return [];
     }
     
     const data = await response.json();
@@ -113,7 +190,8 @@ export const getObservationsInArea = async (bounds, options = {}) => {
     );
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij getObservationsInArea: ${response.status}. Geen waarnemingen beschikbaar.`);
+      return [];
     }
     
     const data = await response.json();
@@ -152,7 +230,8 @@ export const getObservationClusters = async (bounds, options = {}) => {
     );
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij getObservationClusters: ${response.status}. Geen clusters beschikbaar.`);
+      return [];
     }
     
     const data = await response.json();
@@ -181,14 +260,15 @@ export const searchTaxa = async (query, rank = null) => {
     );
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij searchTaxa: ${response.status}. Fallback taxa worden gebruikt.`);
+      return FALLBACK_TAXA;
     }
     
     const data = await response.json();
     return data.taxa || [];
   } catch (error) {
     console.error('Fout bij het zoeken naar taxa:', error);
-    return [];
+    return FALLBACK_TAXA;
   }
 };
 
@@ -202,7 +282,8 @@ export const getTaxonChildren = async (taxonId) => {
     const response = await fetch(`${API_BASE_URL}/v2/taxon/${taxonId}/children`);
     
     if (!response.ok) {
-      throw new Error(`API fout: ${response.status}`);
+      console.warn(`API fout bij getTaxonChildren: ${response.status}. Geen onderliggende taxa beschikbaar.`);
+      return [];
     }
     
     const data = await response.json();

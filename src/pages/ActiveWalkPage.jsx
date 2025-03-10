@@ -552,6 +552,23 @@ const ActiveWalkPage = () => {
     handleStartObservation();
   };
 
+  // Functie om een observatie te selecteren op de kaart
+  const handleObservationClick = (observationId) => {
+    const observation = observations.find(obs => obs.id === observationId);
+    if (observation) {
+      // Scroll naar de observatie in de lijst
+      const element = document.getElementById(`observation-${observationId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Highlight de observatie tijdelijk
+        element.classList.add('bg-primary-50');
+        setTimeout(() => {
+          element.classList.remove('bg-primary-50');
+        }, 1500);
+      }
+    }
+  };
+
   return (
     <div className="pb-20">
       {/* Header met wandelinformatie */}
