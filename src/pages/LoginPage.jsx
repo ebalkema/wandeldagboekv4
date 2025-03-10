@@ -251,12 +251,41 @@ const LoginPage = () => {
           </div>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600 text-sm sm:text-base">
+            <p className="text-gray-600 text-sm">
               Nog geen account?{' '}
-              <Link to="/register" className="text-primary-600 hover:underline">
+              <Link to="/register" className="text-primary-600 hover:text-primary-800">
                 Registreer hier
               </Link>
             </p>
+          </div>
+          
+          {/* Instructies voor toevoegen aan beginscherm */}
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-medium text-gray-800 mb-3">
+              Voeg Wandeldagboek toe aan je beginscherm
+            </h3>
+            
+            <div className="bg-gray-50 rounded-lg p-4 text-sm">
+              <div className="mb-4">
+                <p className="font-medium text-gray-700 mb-1">iPhone / iPad:</p>
+                <ol className="list-decimal list-inside text-gray-600 space-y-1 pl-1">
+                  <li>Open deze website in Safari</li>
+                  <li>Tik op het 'Deel' icoon (vierkant met pijl omhoog)</li>
+                  <li>Scroll naar beneden en tik op 'Zet op beginscherm'</li>
+                  <li>Tik op 'Voeg toe'</li>
+                </ol>
+              </div>
+              
+              <div>
+                <p className="font-medium text-gray-700 mb-1">Android:</p>
+                <ol className="list-decimal list-inside text-gray-600 space-y-1 pl-1">
+                  <li>Open deze website in Chrome</li>
+                  <li>Tik op de drie puntjes (menu) rechtsboven</li>
+                  <li>Tik op 'Toevoegen aan startscherm'</li>
+                  <li>Tik op 'Toevoegen'</li>
+                </ol>
+              </div>
+            </div>
           </div>
         </div>
       </div>

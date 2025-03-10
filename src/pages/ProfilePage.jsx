@@ -383,91 +383,138 @@ const ProfilePage = () => {
       </div>
       
       {/* Acties */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-        <div className="divide-y divide-gray-100">
-          {/* Synchronisatie */}
-          {hasPendingItems && (
-            <div className="px-4 py-3">
-              <button 
-                onClick={handleSync}
-                disabled={syncing}
-                className={`w-full flex items-center text-left ${
-                  syncSuccess === false ? 'text-yellow-700' : 
-                  syncSuccess === true ? 'text-green-700' : 
-                  'text-blue-700'
-                }`}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Acties</h3>
+        
+        {/* Synchronisatie */}
+        <div className="mb-4">
+          <button
+            onClick={handleSync}
+            disabled={syncing || !hasPendingItems}
+            className={`w-full flex items-center justify-center px-4 py-2 rounded-lg mb-2 ${
+              hasPendingItems
+                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                : 'bg-gray-100 text-gray-500'
+            } transition-colors duration-200`}
+          >
+            <FaSync className={`mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Bezig met synchroniseren...' : (
+              hasPendingItems 
+                ? `Synchroniseer offline gegevens (${pendingCount})` 
+                : 'Geen offline gegevens om te synchroniseren'
+            )}
+          </button>
+          
+          {syncMessage && (
+            <div className={`text-sm p-2 rounded ${
+              syncSuccess === null
+                ? 'bg-blue-50 text-blue-700'
+                : syncSuccess
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
+            }`}>
+              <div className="flex items-center">
+                {syncSuccess === null ? (
+                  <FaInfoCircle className="mr-1" />
+                ) : syncSuccess ? (
+                  <FaCheck className="mr-1" />
+                ) : (
+                  <FaExclamationTriangle className="mr-1" />
+                )}
+                {syncMessage}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Vogelwaarnemingen instellingen */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowBirdSettings(!showBirdSettings)}
+            className="w-full flex items-center justify-center px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors duration-200"
+          >
+            <FaBinoculars className="mr-2" />
+            Vogelwaarnemingen instellingen
+          </button>
+          
+          {showBirdSettings && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Zoekradius voor vogelwaarnemingen (km)
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="50"
+                value={birdRadius}
+                onChange={handleBirdRadiusChange}
+                className="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>1 km</span>
+                <span>{birdRadius} km</span>
+                <span>50 km</span>
+              </div>
+              <button
+                onClick={handleSaveBirdSettings}
+                className="mt-3 w-full bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition-colors duration-200 text-sm"
               >
-                <div className="flex items-center justify-center w-8 h-8 mr-3">
-                  {syncing ? (
-                    <FaSync className="text-blue-600 animate-spin" />
-                  ) : syncSuccess === true ? (
-                    <FaCheck className="text-green-600" />
-                  ) : syncSuccess === false ? (
-                    <FaExclamationTriangle className="text-yellow-600" />
-                  ) : (
-                    <FaSync className="text-blue-600" />
-                  )}
-                </div>
-                
-                <div className="flex-grow">
-                  <div className="flex items-center">
-                    <p className="font-medium">Synchroniseer met Firestore</p>
-                    <FaFire className="text-orange-500 ml-2" />
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mt-1">
-                    {pendingCount} item{pendingCount !== 1 ? 's' : ''} wachten op synchronisatie
-                  </p>
-                  
-                  {syncMessage && (
-                    <p className={`text-sm mt-1 ${
-                      syncSuccess === false ? 'text-yellow-700' : 
-                      syncSuccess === true ? 'text-green-700' : 
-                      'text-gray-600'
-                    }`}>
-                      {syncMessage}
-                    </p>
-                  )}
-                </div>
+                Opslaan
               </button>
             </div>
           )}
+        </div>
+        
+        {/* Instellingen */}
+        <button
+          onClick={() => navigate('/settings')}
+          className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg mb-4 transition-colors duration-200"
+        >
+          <FaCog className="mr-2" />
+          Instellingen
+        </button>
+        
+        {/* Uitloggen */}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors duration-200"
+        >
+          <FaSignOutAlt className="mr-2" />
+          Uitloggen
+        </button>
+      </div>
+      
+      {/* Instructies voor toevoegen aan beginscherm */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+          Voeg Wandeldagboek toe aan je beginscherm
+        </h3>
+        
+        <p className="text-gray-600 text-sm mb-4">
+          Voor de beste ervaring kun je Wandeldagboek toevoegen aan je beginscherm. 
+          Zo heb je snel toegang tot de app en kun je deze offline gebruiken.
+        </p>
+        
+        <div className="bg-gray-50 rounded-lg p-4 text-sm">
+          <div className="mb-4">
+            <p className="font-medium text-gray-700 mb-1">iPhone / iPad:</p>
+            <ol className="list-decimal list-inside text-gray-600 space-y-1 pl-1">
+              <li>Open deze website in Safari</li>
+              <li>Tik op het 'Deel' icoon (vierkant met pijl omhoog)</li>
+              <li>Scroll naar beneden en tik op 'Zet op beginscherm'</li>
+              <li>Tik op 'Voeg toe'</li>
+            </ol>
+          </div>
           
-          {/* Instellingen */}
-          <button 
-            onClick={() => navigate('/settings')}
-            className="w-full px-4 py-3 flex items-center text-left hover:bg-gray-50"
-          >
-            <FaCog className="text-gray-600 mr-3" />
-            <p className="font-medium">Instellingen</p>
-          </button>
-          
-          {/* Over */}
-          <button 
-            onClick={() => {}}
-            className="w-full px-4 py-3 flex items-center text-left hover:bg-gray-50"
-          >
-            <FaInfoCircle className="text-gray-600 mr-3" />
-            <p className="font-medium">Over Wandeldagboek</p>
-          </button>
-          
-          {/* Doneren */}
-          <button 
-            onClick={() => {}}
-            className="w-full px-4 py-3 flex items-center text-left hover:bg-gray-50"
-          >
-            <FaHeart className="text-red-500 mr-3" />
-            <p className="font-medium">Steun dit project</p>
-          </button>
-          
-          {/* Uitloggen */}
-          <button 
-            onClick={handleLogout}
-            className="w-full px-4 py-3 flex items-center text-left hover:bg-gray-50"
-          >
-            <FaSignOutAlt className="text-red-600 mr-3" />
-            <p className="font-medium">Uitloggen</p>
-          </button>
+          <div>
+            <p className="font-medium text-gray-700 mb-1">Android:</p>
+            <ol className="list-decimal list-inside text-gray-600 space-y-1 pl-1">
+              <li>Open deze website in Chrome</li>
+              <li>Tik op de drie puntjes (menu) rechtsboven</li>
+              <li>Tik op 'Toevoegen aan startscherm'</li>
+              <li>Tik op 'Toevoegen'</li>
+            </ol>
+          </div>
         </div>
       </div>
       
