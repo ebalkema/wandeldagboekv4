@@ -6,13 +6,15 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile
+  updateProfile as updateFirebaseProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import * as firestoreService from '../services/firestoreService';
 
 // Maak de AuthContext
-export const AuthContext = createContext();
+const AuthContext = createContext();
 
 // Hook om de AuthContext te gebruiken
 export const useAuth = () => {
@@ -23,76 +25,174 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userSettings, setUserSettings] = useState({
+    birdRadius: 10, // Standaard zoekradius voor vogelwaarnemingen (in km)
+    // Andere gebruikersinstellingen kunnen hier worden toegevoegd
+  });
 
   // Registreer een nieuwe gebruiker met email en wachtwoord
   const signup = async (email, password, displayName) => {
     try {
+      // Maak een nieuwe gebruiker aan
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
       // Update het profiel met de displayName
-      await updateProfile(user, { displayName });
+      await updateFirebaseProfile(user, { displayName });
       
       // Maak een gebruikersdocument in Firestore
       await setDoc(doc(db, 'users', user.uid), {
-        displayName,
         email,
+        displayName,
         createdAt: serverTimestamp(),
         settings: {
-          voiceCommandsEnabled: true,
-          automaticWeatherEnabled: true
+          birdRadius: 10 // Standaard zoekradius voor vogelwaarnemingen
         }
       });
       
       return user;
     } catch (error) {
+      console.error('Fout bij registratie:', error);
       throw error;
     }
   };
 
   // Log in met email en wachtwoord
-  const login = (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
+  const login = async (email, password) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
+    } catch (error) {
+      console.error('Fout bij inloggen:', error);
+      throw error;
+    }
   };
 
   // Log in met Google
   const loginWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
       
       // Controleer of de gebruiker al bestaat in Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       
-      // Als de gebruiker niet bestaat, maak een nieuw document aan
       if (!userDoc.exists()) {
+        // Maak een nieuw gebruikersdocument als het nog niet bestaat
         await setDoc(doc(db, 'users', user.uid), {
-          displayName: user.displayName,
           email: user.email,
+          displayName: user.displayName,
           createdAt: serverTimestamp(),
           settings: {
-            voiceCommandsEnabled: true,
-            automaticWeatherEnabled: true
+            birdRadius: 10 // Standaard zoekradius voor vogelwaarnemingen
           }
         });
       }
       
       return user;
     } catch (error) {
+      console.error('Fout bij inloggen met Google:', error);
       throw error;
     }
   };
 
   // Log uit
-  const logout = () => {
-    return signOut(auth);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Fout bij uitloggen:', error);
+      throw error;
+    }
   };
 
-  // Luister naar veranderingen in de authenticatiestatus
+  // Reset wachtwoord
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('Fout bij wachtwoord reset:', error);
+      throw error;
+    }
+  };
+
+  // Update gebruikersprofiel
+  const updateProfile = async (displayName, photoURL) => {
+    if (!currentUser) return;
+    
+    try {
+      const updates = {};
+      
+      if (displayName) {
+        updates.displayName = displayName;
+        await updateFirebaseProfile(currentUser, { displayName });
+      }
+      
+      if (photoURL) {
+        updates.photoURL = photoURL;
+        await updateFirebaseProfile(currentUser, { photoURL });
+      }
+      
+      // Update Firestore document
+      if (Object.keys(updates).length > 0) {
+        await setDoc(doc(db, 'users', currentUser.uid), updates, { merge: true });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Fout bij het updaten van profiel:', error);
+      return false;
+    }
+  };
+
+  // Update gebruikersinstellingen
+  const updateUserSettings = async (settings) => {
+    if (!currentUser) return;
+    
+    try {
+      // Update instellingen in Firestore
+      await firestoreService.updateUserSettings(currentUser.uid, settings);
+      
+      // Update lokale state
+      setUserSettings(prevSettings => ({
+        ...prevSettings,
+        ...settings
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Fout bij het updaten van gebruikersinstellingen:', error);
+      return false;
+    }
+  };
+
+  // Haal gebruikersinstellingen op bij inloggen
+  const fetchUserSettings = async (userId) => {
+    try {
+      const settings = await firestoreService.getUserSettings(userId);
+      
+      if (settings) {
+        setUserSettings(prevSettings => ({
+          ...prevSettings,
+          ...settings
+        }));
+      }
+    } catch (error) {
+      console.error('Fout bij het ophalen van gebruikersinstellingen:', error);
+    }
+  };
+
+  // Luister naar auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      
+      if (user) {
+        // Haal gebruikersinstellingen op
+        await fetchUserSettings(user.uid);
+      }
+      
       setLoading(false);
     });
 
@@ -102,10 +202,14 @@ export const AuthProvider = ({ children }) => {
   // Context waarde
   const value = {
     currentUser,
+    userSettings,
     signup,
     login,
     loginWithGoogle,
-    logout
+    logout,
+    resetPassword,
+    updateProfile,
+    updateUserSettings
   };
 
   return (

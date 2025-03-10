@@ -9,6 +9,7 @@ import WeatherDisplay from '../components/WeatherDisplay';
 import ObservationItem from '../components/ObservationItem';
 import BirdObservations from '../components/BirdObservations';
 import { FaShare, FaBook } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Pagina voor het weergeven van een samenvatting van een voltooide wandeling
@@ -16,6 +17,7 @@ import { FaShare, FaBook } from 'react-icons/fa';
 const WalkSummaryPage = () => {
   const { walkId } = useParams();
   const navigate = useNavigate();
+  const { userSettings } = useAuth();
   
   const [walk, setWalk] = useState(null);
   const [observations, setObservations] = useState([]);
@@ -301,10 +303,15 @@ const WalkSummaryPage = () => {
           {/* Vogelwaarnemingen */}
           {walk && walk.startLocation && (
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Vogelwaarnemingen in de buurt</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Vogelwaarnemingen in de buurt</h2>
+                <span className="text-sm text-gray-500">
+                  Zoekradius: {userSettings?.birdRadius || 10} km
+                </span>
+              </div>
               <BirdObservations 
                 location={walk.startLocation} 
-                radius={10}
+                radius={userSettings?.birdRadius}
               />
             </div>
           )}

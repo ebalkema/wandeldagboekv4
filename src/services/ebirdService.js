@@ -15,6 +15,118 @@ const BASE_URL = 'https://api.ebird.org/v2';
 const CACHE_KEY = 'ebirdCache';
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 uur in milliseconden
 
+// Mapping van veelvoorkomende vogels (Engels naar Nederlands)
+// Dit is een fallback voor als we geen Nederlandse naam kunnen ophalen via de API
+const COMMON_BIRDS_NL = {
+  'Eurasian Blackbird': 'Merel',
+  'European Robin': 'Roodborst',
+  'Great Tit': 'Koolmees',
+  'Blue Tit': 'Pimpelmees',
+  'House Sparrow': 'Huismus',
+  'Common Chaffinch': 'Vink',
+  'Common Wood Pigeon': 'Houtduif',
+  'Eurasian Magpie': 'Ekster',
+  'Carrion Crow': 'Zwarte Kraai',
+  'Eurasian Jay': 'Gaai',
+  'Common Starling': 'Spreeuw',
+  'Common Blackbird': 'Merel',
+  'European Greenfinch': 'Groenling',
+  'European Goldfinch': 'Putter',
+  'Common Chiffchaff': 'Tjiftjaf',
+  'Eurasian Blue Tit': 'Pimpelmees',
+  'Great Spotted Woodpecker': 'Grote Bonte Specht',
+  'Eurasian Wren': 'Winterkoning',
+  'Black-headed Gull': 'Kokmeeuw',
+  'Eurasian Collared-Dove': 'Turkse Tortel',
+  'Common Swift': 'Gierzwaluw',
+  'Barn Swallow': 'Boerenzwaluw',
+  'White Wagtail': 'Witte Kwikstaart',
+  'Grey Heron': 'Blauwe Reiger',
+  'Mallard': 'Wilde Eend',
+  'Mute Swan': 'Knobbelzwaan',
+  'Common Moorhen': 'Waterhoen',
+  'Eurasian Coot': 'Meerkoet',
+  'Common Kingfisher': 'IJsvogel',
+  'Common Buzzard': 'Buizerd',
+  'Common Kestrel': 'Torenvalk',
+  'Tawny Owl': 'Bosuil',
+  'Long-tailed Tit': 'Staartmees',
+  'Eurasian Nuthatch': 'Boomklever',
+  'Short-toed Treecreeper': 'Boomkruiper',
+  'Eurasian Bullfinch': 'Goudvink',
+  'Reed Bunting': 'Rietgors',
+  'Common Reed Bunting': 'Rietgors',
+  'Common Linnet': 'Kneu',
+  'European Goldfinch': 'Putter',
+  'European Greenfinch': 'Groenling',
+  'Yellowhammer': 'Geelgors',
+  'Dunnock': 'Heggenmus',
+  'Song Thrush': 'Zanglijster',
+  'Mistle Thrush': 'Grote Lijster',
+  'Fieldfare': 'Kramsvogel',
+  'Redwing': 'Koperwiek',
+  'Spotted Flycatcher': 'Grauwe Vliegenvanger',
+  'European Pied Flycatcher': 'Bonte Vliegenvanger',
+  'Willow Warbler': 'Fitis',
+  'Eurasian Blackcap': 'Zwartkop',
+  'Garden Warbler': 'Tuinfluiter',
+  'Lesser Whitethroat': 'Braamsluiper',
+  'Common Whitethroat': 'Grasmus',
+  'Sedge Warbler': 'Rietzanger',
+  'Eurasian Reed Warbler': 'Kleine Karekiet',
+  'Great Reed Warbler': 'Grote Karekiet',
+  'Marsh Warbler': 'Bosrietzanger',
+  'Icterine Warbler': 'Spotvogel',
+  'Common Nightingale': 'Nachtegaal',
+  'Black Redstart': 'Zwarte Roodstaart',
+  'European Stonechat': 'Roodborsttapuit',
+  'Northern Wheatear': 'Tapuit',
+  'Western Yellow Wagtail': 'Gele Kwikstaart',
+  'Meadow Pipit': 'Graspieper',
+  'Tree Pipit': 'Boompieper',
+  'Common Cuckoo': 'Koekoek',
+  'Common Pheasant': 'Fazant',
+  'Grey Partridge': 'Patrijs',
+  'Common Quail': 'Kwartel',
+  'Water Rail': 'Waterral',
+  'Spotted Crake': 'Porseleinhoen',
+  'Common Crane': 'Kraanvogel',
+  'Eurasian Oystercatcher': 'Scholekster',
+  'Northern Lapwing': 'Kievit',
+  'Common Snipe': 'Watersnip',
+  'Eurasian Woodcock': 'Houtsnip',
+  'Common Sandpiper': 'Oeverloper',
+  'Green Sandpiper': 'Witgat',
+  'Common Redshank': 'Tureluur',
+  'Black-tailed Godwit': 'Grutto',
+  'Eurasian Curlew': 'Wulp',
+  'Ruff': 'Kemphaan',
+  'Little Grebe': 'Dodaars',
+  'Great Crested Grebe': 'Fuut',
+  'Great Cormorant': 'Aalscholver',
+  'Little Egret': 'Kleine Zilverreiger',
+  'Great Egret': 'Grote Zilverreiger',
+  'Eurasian Spoonbill': 'Lepelaar',
+  'White Stork': 'Ooievaar',
+  'Greylag Goose': 'Grauwe Gans',
+  'Canada Goose': 'Canadese Gans',
+  'Barnacle Goose': 'Brandgans',
+  'Common Shelduck': 'Bergeend',
+  'Gadwall': 'Krakeend',
+  'Eurasian Teal': 'Wintertaling',
+  'Common Pochard': 'Tafeleend',
+  'Tufted Duck': 'Kuifeend',
+  'Common Goldeneye': 'Brilduiker',
+  'Common Merganser': 'Grote Zaagbek',
+  'Red-breasted Merganser': 'Middelste Zaagbek',
+  'Western Marsh Harrier': 'Bruine Kiekendief',
+  'Eurasian Sparrowhawk': 'Sperwer',
+  'Northern Goshawk': 'Havik',
+  'Red Kite': 'Rode Wouw',
+  'White-tailed Eagle': 'Zeearend',
+  'Peregrine Falcon': 'Slechtvalk'
+};
+
 /**
  * Haalt recente vogelwaarnemingen op binnen een bepaalde straal van een locatie
  * @param {number} lat - Breedtegraad
@@ -60,6 +172,7 @@ export const getNearbyObservations = async (lat, lng, radius = 10, days = 7) => 
       speciesCode: obs.speciesCode,
       commonName: obs.comName,
       scientificName: obs.sciName,
+      dutchName: COMMON_BIRDS_NL[obs.comName] || null, // Voeg Nederlandse naam toe indien beschikbaar
       location: {
         name: obs.locName,
         lat: obs.lat,
@@ -77,6 +190,52 @@ export const getNearbyObservations = async (lat, lng, radius = 10, days = 7) => 
   } catch (error) {
     console.error('Fout bij het ophalen van vogelwaarnemingen:', error);
     return [];
+  }
+};
+
+/**
+ * Haalt een afbeelding URL op voor een vogelsoort
+ * @param {string} speciesName - Naam van de vogelsoort (Engels of wetenschappelijk)
+ * @returns {Promise<string>} - URL naar een afbeelding van de vogelsoort
+ */
+export const getBirdImageUrl = async (speciesName) => {
+  try {
+    // Controleer of er een gecachte afbeelding is
+    const cacheKey = `bird_image_${speciesName.replace(/\s+/g, '_').toLowerCase()}`;
+    const cachedUrl = localStorage.getItem(cacheKey);
+    
+    if (cachedUrl) {
+      return cachedUrl;
+    }
+    
+    // Gebruik de Flickr API om een afbeelding te zoeken
+    // We zoeken op de wetenschappelijke naam voor betere resultaten
+    const searchTerm = encodeURIComponent(`${speciesName} bird`);
+    const flickrUrl = `https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=3cffcc97867ea6acf8e7d6c4b7c21d96&text=${searchTerm}&sort=relevance&per_page=1&page=1&format=json&nojsoncallback=1&license=1,2,3,4,5,6,7`;
+    
+    const response = await fetch(flickrUrl);
+    
+    if (!response.ok) {
+      throw new Error('Kon geen afbeelding ophalen');
+    }
+    
+    const data = await response.json();
+    
+    if (data.photos && data.photos.photo && data.photos.photo.length > 0) {
+      const photo = data.photos.photo[0];
+      const imageUrl = `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_m.jpg`;
+      
+      // Sla de URL op in de cache
+      localStorage.setItem(cacheKey, imageUrl);
+      
+      return imageUrl;
+    }
+    
+    // Fallback naar een generieke afbeelding
+    return null;
+  } catch (error) {
+    console.error('Fout bij het ophalen van vogelafbeelding:', error);
+    return null;
   }
 };
 
@@ -122,6 +281,7 @@ export const getSpeciesInfo = async (speciesCode) => {
       speciesCode: data.speciesCode,
       commonName: data.comName,
       scientificName: data.sciName,
+      dutchName: COMMON_BIRDS_NL[data.comName] || null, // Voeg Nederlandse naam toe indien beschikbaar
       familyCommonName: data.familyComName,
       familyScientificName: data.familySciName,
       order: data.order,

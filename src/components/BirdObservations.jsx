@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { FaBinoculars, FaMapMarkerAlt, FaCalendarAlt, FaExclamationCircle, FaInfoCircle } from 'react-icons/fa';
-import { getNearbyObservations, getNearbyHotspots } from '../services/ebirdService';
+import { getNearbyObservations, getNearbyHotspots, getBirdImageUrl } from '../services/ebirdService';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Component voor het weergeven van vogelwaarnemingen in de buurt
  */
-const BirdObservations = ({ location, radius = 10 }) => {
+const BirdObservations = ({ location, radius }) => {
+  const { userSettings } = useAuth();
   const [observations, setObservations] = useState([]);
   const [hotspots, setHotspots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('observations'); // 'observations' of 'hotspots'
+  const [birdImages, setBirdImages] = useState({});
+  
+  // Gebruik de radius uit de gebruikersinstellingen als er geen radius is opgegeven
+  const searchRadius = radius || userSettings.birdRadius || 10;
   
   useEffect(() => {
     const fetchData = async () => {
@@ -25,12 +31,29 @@ const BirdObservations = ({ location, radius = 10 }) => {
         setError(null);
         
         // Haal vogelwaarnemingen op
-        const birdObservations = await getNearbyObservations(location.lat, location.lng, radius);
+        const birdObservations = await getNearbyObservations(location.lat, location.lng, searchRadius);
         setObservations(birdObservations);
         
         // Haal hotspots op
-        const nearbyHotspots = await getNearbyHotspots(location.lat, location.lng, radius);
+        const nearbyHotspots = await getNearbyHotspots(location.lat, location.lng, searchRadius);
         setHotspots(nearbyHotspots);
+        
+        // Haal afbeeldingen op voor elke vogelsoort
+        const imagePromises = birdObservations.map(async (obs) => {
+          const imageUrl = await getBirdImageUrl(obs.scientificName);
+          return { speciesCode: obs.speciesCode, imageUrl };
+        });
+        
+        const imageResults = await Promise.all(imagePromises);
+        const imageMap = {};
+        
+        imageResults.forEach(result => {
+          if (result.imageUrl) {
+            imageMap[result.speciesCode] = result.imageUrl;
+          }
+        });
+        
+        setBirdImages(imageMap);
       } catch (error) {
         console.error('Fout bij het ophalen van vogelgegevens:', error);
         setError('Kon vogelgegevens niet laden');
@@ -40,7 +63,7 @@ const BirdObservations = ({ location, radius = 10 }) => {
     };
     
     fetchData();
-  }, [location, radius]);
+  }, [location, searchRadius, userSettings.birdRadius]);
   
   // Groepeer waarnemingen per locatie
   const groupedObservations = observations.reduce((groups, obs) => {
@@ -118,7 +141,7 @@ const BirdObservations = ({ location, radius = 10 }) => {
                 Recente vogelwaarnemingen
               </h3>
               <span className="text-sm text-gray-500">
-                {observations.length} soorten gevonden
+                {observations.length} soorten gevonden binnen {searchRadius} km
               </span>
             </div>
             
@@ -143,9 +166,32 @@ const BirdObservations = ({ location, radius = 10 }) => {
                       {locationObservations.map((obs) => (
                         <div key={`${obs.speciesCode}-${obs.observationDate}`} className="px-4 py-3 hover:bg-gray-50">
                           <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium text-gray-800">{obs.commonName}</p>
-                              <p className="text-sm text-gray-500 italic">{obs.scientificName}</p>
+                            <div className="flex items-start">
+                              {birdImages[obs.speciesCode] && (
+                                <div className="mr-3 flex-shrink-0">
+                                  <img 
+                                    src={birdImages[obs.speciesCode]} 
+                                    alt={obs.commonName} 
+                                    className="w-16 h-16 object-cover rounded-lg"
+                                    onError={(e) => {
+                                      e.target.onerror = null;
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium text-gray-800">
+                                  {obs.dutchName ? (
+                                    <>
+                                      {obs.dutchName} <span className="text-gray-500 text-sm">({obs.commonName})</span>
+                                    </>
+                                  ) : (
+                                    obs.commonName
+                                  )}
+                                </p>
+                                <p className="text-sm text-gray-500 italic">{obs.scientificName}</p>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="inline-block bg-primary-100 text-primary-800 text-xs px-2 py-1 rounded-full">
@@ -180,7 +226,7 @@ const BirdObservations = ({ location, radius = 10 }) => {
                 Vogel-hotspots in de buurt
               </h3>
               <span className="text-sm text-gray-500">
-                {hotspots.length} locaties gevonden
+                {hotspots.length} locaties gevonden binnen {searchRadius} km
               </span>
             </div>
             

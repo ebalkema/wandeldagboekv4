@@ -1,10 +1,11 @@
-import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth as useAuthFromContext } from '../context/AuthContext';
 
 /**
- * Custom hook voor het gebruik van de AuthContext
- * @returns {Object} - AuthContext waarde
+ * Hook om de AuthContext te gebruiken
+ * @returns {Object} - AuthContext
  */
 export const useAuth = () => {
-  return useContext(AuthContext);
-}; 
+  return useAuthFromContext();
+};
+
+export default useAuth; 

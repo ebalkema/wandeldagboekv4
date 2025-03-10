@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../context/VoiceContext';
 import { 
   getWalk, 
@@ -41,7 +41,7 @@ import { FaPlus } from 'react-icons/fa';
  */
 const ActiveWalkPage = () => {
   const { walkId } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, userSettings } = useAuth();
   const { processCommand } = useVoice();
   const navigate = useNavigate();
   
@@ -702,10 +702,15 @@ const ActiveWalkPage = () => {
       {/* Vogelwaarnemingen */}
       {currentLocation && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Vogelwaarnemingen in de buurt</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">Vogelwaarnemingen in de buurt</h2>
+            <span className="text-sm text-gray-500">
+              Zoekradius: {userSettings?.birdRadius || 10} km
+            </span>
+          </div>
           <BirdObservations 
             location={{ lat: currentLocation[0], lng: currentLocation[1] }} 
-            radius={5}
+            radius={userSettings?.birdRadius}
           />
         </div>
       )}

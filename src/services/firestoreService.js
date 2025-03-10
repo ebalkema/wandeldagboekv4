@@ -40,6 +40,26 @@ export const getUser = async (userId) => {
 };
 
 /**
+ * Haalt gebruikersinstellingen op
+ * @param {string} userId - ID van de gebruiker
+ * @returns {Promise<Object>} - Gebruikersinstellingen
+ */
+export const getUserSettings = async (userId) => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    
+    if (userDoc.exists() && userDoc.data().settings) {
+      return userDoc.data().settings;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Fout bij het ophalen van gebruikersinstellingen:', error);
+    throw error;
+  }
+};
+
+/**
  * Update gebruikersinstellingen
  * @param {string} userId - ID van de gebruiker
  * @param {Object} settings - Nieuwe instellingen
@@ -47,7 +67,9 @@ export const getUser = async (userId) => {
  */
 export const updateUserSettings = async (userId, settings) => {
   try {
-    await updateDoc(doc(db, 'users', userId), { settings });
+    await updateDoc(doc(db, 'users', userId), {
+      settings: settings
+    });
   } catch (error) {
     console.error('Fout bij het updaten van gebruikersinstellingen:', error);
     throw error;

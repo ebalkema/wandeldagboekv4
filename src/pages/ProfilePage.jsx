@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getUserWalks, getGlobalStats } from '../services/firestoreService';
 import { hasPendingSyncItems, syncOfflineItems, getPendingSyncCount } from '../services/offlineService';
-import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart } from 'react-icons/fa';
+import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart, FaBinoculars } from 'react-icons/fa';
 import { FaCheck, FaExclamationTriangle, FaUsers, FaRoute, FaEye, FaMedal } from 'react-icons/fa';
 import { FaFire } from 'react-icons/fa';
 
@@ -11,7 +11,7 @@ import { FaFire } from 'react-icons/fa';
  * Profielpagina voor gebruikersinstellingen en statistieken
  */
 const ProfilePage = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, userSettings, updateUserSettings } = useAuth();
   const navigate = useNavigate();
   
   const [userStats, setUserStats] = useState({
@@ -31,6 +31,8 @@ const ProfilePage = () => {
   const [syncSuccess, setSyncSuccess] = useState(null);
   const [hasPendingItems, setHasPendingItems] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [showBirdSettings, setShowBirdSettings] = useState(false);
+  const [birdRadius, setBirdRadius] = useState(userSettings?.birdRadius || 10);
 
   // Haal gebruikersstatistieken op
   useEffect(() => {
@@ -139,6 +141,24 @@ const ProfilePage = () => {
   const calculatePercentage = (userValue, globalValue) => {
     if (!globalValue) return 0;
     return Math.min(100, Math.round((userValue / globalValue) * 100));
+  };
+
+  // Update vogelwaarnemingen instellingen
+  const handleBirdRadiusChange = (e) => {
+    setBirdRadius(Number(e.target.value));
+  };
+
+  const handleSaveBirdSettings = async () => {
+    try {
+      await updateUserSettings({
+        ...userSettings,
+        birdRadius
+      });
+      
+      setShowBirdSettings(false);
+    } catch (error) {
+      console.error('Fout bij het opslaan van vogelwaarnemingen instellingen:', error);
+    }
   };
 
   return (
@@ -294,6 +314,72 @@ const ProfilePage = () => {
         <p className="text-sm text-gray-600 text-center">
           Samen maken we een verschil voor natuurobservatie!
         </p>
+      </div>
+      
+      {/* Vogelwaarnemingen instellingen */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+            <FaBinoculars className="text-primary-500 mr-2" />
+            Vogelwaarnemingen
+          </h3>
+          <button
+            onClick={() => setShowBirdSettings(!showBirdSettings)}
+            className="text-primary-600 hover:text-primary-800"
+          >
+            <FaCog />
+          </button>
+        </div>
+        
+        {showBirdSettings ? (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="mb-4">
+              <label htmlFor="birdRadius" className="block text-sm font-medium text-gray-700 mb-1">
+                Zoekradius (km)
+              </label>
+              <div className="flex items-center">
+                <input
+                  type="range"
+                  id="birdRadius"
+                  min="1"
+                  max="50"
+                  step="1"
+                  value={birdRadius}
+                  onChange={handleBirdRadiusChange}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="ml-2 text-gray-700 min-w-[2.5rem] text-center">{birdRadius}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Stel in hoe ver (in kilometers) je wilt zoeken naar vogelwaarnemingen.
+              </p>
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowBirdSettings(false)}
+                className="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors mr-2"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={handleSaveBirdSettings}
+                className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                Opslaan
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <p className="text-gray-600">
+              Je zoekt momenteel naar vogelwaarnemingen binnen <span className="font-semibold">{userSettings?.birdRadius || 10} km</span> van je locatie.
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Klik op het tandwiel-icoon om deze instelling aan te passen.
+            </p>
+          </div>
+        )}
       </div>
       
       {/* Acties */}
