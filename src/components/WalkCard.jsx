@@ -3,11 +3,24 @@ import { formatSmartDate, formatDuration, getDurationInMinutes } from '../utils/
 import { formatDistance } from '../services/locationService';
 import WeatherDisplay from './WeatherDisplay';
 import { FaSync } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
 
 /**
  * Component voor het weergeven van een wandelkaart
  */
 const WalkCard = ({ walk }) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  
+  // Controleer schermgrootte en pas aan wanneer deze verandert
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   if (!walk) return null;
 
   // Bereken de duur van de wandeling
@@ -48,39 +61,39 @@ const WalkCard = ({ walk }) => {
         isPendingSync ? 'border-l-4 border-primary-400' : ''
       }`}
     >
-      <div className="p-3 sm:p-4">
+      <div className="p-2 sm:p-4">
         <div className="flex justify-between items-start">
-          <div className="mr-2">
-            <div className="flex items-center">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 line-clamp-1">{walk.name}</h3>
+          <div className="mr-2 flex-grow">
+            <div className="flex items-center flex-wrap">
+              <h3 className="text-sm sm:text-lg font-semibold text-gray-800 line-clamp-1">{walk.name}</h3>
               {isPendingSync && (
-                <div className="ml-2 text-primary-500 flex items-center text-xs">
-                  <FaSync className="mr-1" />
-                  <span>Niet gesynchroniseerd</span>
+                <div className={`${isMobile ? 'ml-1 text-xxs' : 'ml-2 text-xs'} text-primary-500 flex items-center`}>
+                  <FaSync className={`${isMobile ? 'mr-0.5' : 'mr-1'}`} />
+                  <span className="truncate">Niet gesynchroniseerd</span>
                 </div>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-gray-600">
+            <p className="text-xxs sm:text-sm text-gray-600">
               {walk.startTime && formatSmartDate(getDateFromTimestamp(walk.startTime))}
             </p>
           </div>
           
           {walk.weather && (
             <div className="flex-shrink-0">
-              <WeatherDisplay weather={walk.weather} size="small" />
+              <WeatherDisplay weather={walk.weather} size={isMobile ? "xsmall" : "small"} />
             </div>
           )}
         </div>
         
-        <div className="mt-2 sm:mt-3 flex flex-wrap items-center text-xs sm:text-sm gap-y-1">
-          <div className="flex items-center mr-3 sm:mr-4">
+        <div className="mt-1 sm:mt-3 flex flex-wrap items-center text-xxs sm:text-sm gap-x-2 sm:gap-x-4 gap-y-1">
+          <div className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 text-primary-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>{duration ? formatDuration(duration) : 'Actief'}</span>
           </div>
           
-          <div className="flex items-center mr-3 sm:mr-4">
+          <div className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 text-primary-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
@@ -96,8 +109,8 @@ const WalkCard = ({ walk }) => {
         </div>
         
         {isActive && (
-          <div className="mt-2 sm:mt-3 flex justify-end">
-            <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-800">
+          <div className="mt-1 sm:mt-3 flex justify-end">
+            <span className="inline-flex items-center px-1.5 sm:px-2.5 py-0.5 rounded-full text-xxs sm:text-xs font-medium bg-secondary-100 text-secondary-800">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 mr-1 bg-secondary-500 rounded-full animate-pulse"></span>
               Actief
             </span>

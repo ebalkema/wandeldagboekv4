@@ -18,6 +18,13 @@ const WeatherDisplay = ({ weather, size = 'medium' }) => {
 
   // Bepaal de grootte van het component
   const sizeClasses = {
+    xsmall: {
+      container: 'flex items-center text-xxs',
+      icon: 'w-4 h-4 object-contain',
+      emoji: 'text-base',
+      temp: 'text-xs font-semibold',
+      desc: 'hidden'
+    },
     small: {
       container: 'flex items-center text-xs',
       icon: 'w-6 h-6 object-contain',

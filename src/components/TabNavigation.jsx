@@ -9,6 +9,7 @@ import { FaRoute } from 'react-icons/fa';
 import { FaLeaf } from 'react-icons/fa';
 import { FaStop } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 
 /**
  * Component voor tabblad-navigatie onderaan het scherm
@@ -17,6 +18,17 @@ const TabNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  
+  // Controleer schermgrootte en pas aan wanneer deze verandert
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Controleer of we op een actieve wandelingspagina zijn
   const isActivePage = currentPath.includes('/active-walk/');
@@ -81,33 +93,37 @@ const TabNavigation = () => {
     if (path === '/biodiversity' && currentPath === '/biodiversity') return true;
     return false;
   };
+
+  // Aangepaste NavLink component met responsieve labels
+  const ResponsiveNavLink = ({ to, icon, label }) => (
+    <NavLink
+      to={to}
+      className={({ isActive }) => `
+        flex flex-col items-center justify-center px-1
+        ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
+      `}
+    >
+      {icon}
+      {(!isMobile || to === '/') && <span className="text-xs mt-1">{label}</span>}
+    </NavLink>
+  );
   
   return (
     <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-10">
-      <div className="grid grid-cols-6 h-16">
-        <NavLink
-          to="/"
-          className={({ isActive }) => `
-            flex flex-col items-center justify-center
-            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
-          `}
-        >
-          <FaHome className="text-xl mb-1" />
-          <span className="text-xs">Home</span>
-        </NavLink>
+      <div className="flex justify-between h-16 px-1">
+        <ResponsiveNavLink 
+          to="/" 
+          icon={<FaHome className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
+          label="Home" 
+        />
         
-        <NavLink
-          to="/walks"
-          className={({ isActive }) => `
-            flex flex-col items-center justify-center
-            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
-          `}
-        >
-          <FaRoute className="text-xl mb-1" />
-          <span className="text-xs">Wandelingen</span>
-        </NavLink>
+        <ResponsiveNavLink 
+          to="/walks" 
+          icon={<FaRoute className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
+          label="Wandelingen" 
+        />
         
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center mx-1">
           <Link
             to="/new-walk"
             className="bg-primary-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transform -translate-y-5 hover:bg-primary-700 transition-colors"
@@ -116,38 +132,23 @@ const TabNavigation = () => {
           </Link>
         </div>
         
-        <NavLink
-          to="/birding"
-          className={({ isActive }) => `
-            flex flex-col items-center justify-center
-            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
-          `}
-        >
-          <FaBinoculars className="text-xl mb-1" />
-          <span className="text-xs">Vogels</span>
-        </NavLink>
+        <ResponsiveNavLink 
+          to="/birding" 
+          icon={<FaBinoculars className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
+          label="Vogels" 
+        />
         
-        <NavLink
-          to="/biodiversity"
-          className={({ isActive }) => `
-            flex flex-col items-center justify-center
-            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
-          `}
-        >
-          <FaLeaf className="text-xl mb-1" />
-          <span className="text-xs">Natuur</span>
-        </NavLink>
+        <ResponsiveNavLink 
+          to="/biodiversity" 
+          icon={<FaLeaf className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
+          label="Natuur" 
+        />
         
-        <NavLink
-          to="/profile"
-          className={({ isActive }) => `
-            flex flex-col items-center justify-center
-            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
-          `}
-        >
-          <FaUser className="text-xl mb-1" />
-          <span className="text-xs">Profiel</span>
-        </NavLink>
+        <ResponsiveNavLink 
+          to="/profile" 
+          icon={<FaUser className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
+          label="Profiel" 
+        />
       </div>
     </div>
   );
