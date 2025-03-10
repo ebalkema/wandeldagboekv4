@@ -8,7 +8,7 @@
  */
 
 // eBird API configuratie
-const API_KEY = 'YOUR_EBIRD_API_KEY'; // Vervang dit met een echte API key
+const API_KEY = 'ddqtvos8h97l'; // eBird API-sleutel
 const BASE_URL = 'https://api.ebird.org/v2';
 
 // Cache voor eBird gegevens
