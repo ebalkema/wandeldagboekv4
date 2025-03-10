@@ -218,18 +218,34 @@ export const deleteUserWalks = async (userId) => {
 
 /**
  * Maakt een nieuwe wandeling aan
- * @param {string} userId - ID van de gebruiker
- * @param {string} name - Naam van de wandeling
- * @param {Object} startLocation - Startlocatie {lat, lng}
- * @param {Object} weather - Weergegevens
+ * @param {Object} walkData - Gegevens voor de nieuwe wandeling
+ * @param {string} walkData.userId - ID van de gebruiker
+ * @param {string} walkData.name - Naam van de wandeling
+ * @param {Object} walkData.startLocation - Startlocatie {lat, lng}
+ * @param {Object} walkData.weather - Weergegevens
+ * @param {Date|null} walkData.startTime - Starttijd (optioneel, standaard serverTimestamp)
  * @returns {Promise<string>} - ID van de nieuwe wandeling
  */
-export const createWalk = async (userId, name, startLocation, weather) => {
+export const createWalk = async (walkData) => {
   try {
-    const walkData = {
+    const { userId, name, startLocation, weather, startTime } = walkData;
+    
+    if (!userId) {
+      throw new Error('userId is vereist');
+    }
+    
+    if (!name) {
+      throw new Error('name is vereist');
+    }
+    
+    if (!startLocation) {
+      throw new Error('startLocation is vereist');
+    }
+    
+    const walkDoc = {
       userId,
       name,
-      startTime: serverTimestamp(),
+      startTime: startTime || serverTimestamp(),
       endTime: null,
       startLocation,
       endLocation: null,
@@ -239,7 +255,7 @@ export const createWalk = async (userId, name, startLocation, weather) => {
       observationCount: 0
     };
     
-    const docRef = await addDoc(collection(db, 'walks'), walkData);
+    const docRef = await addDoc(collection(db, 'walks'), walkDoc);
     return docRef.id;
   } catch (error) {
     console.error('Fout bij het aanmaken van wandeling:', error);
