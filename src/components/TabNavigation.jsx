@@ -4,6 +4,9 @@ import { FaWalking } from 'react-icons/fa';
 import { FaUser } from 'react-icons/fa';
 import { FaPlus } from 'react-icons/fa';
 import { FaPodcast } from 'react-icons/fa';
+import { FaBinoculars } from 'react-icons/fa';
+import { FaRoute } from 'react-icons/fa';
+import { NavLink } from 'react-router-dom';
 
 /**
  * Component voor tabblad-navigatie onderaan het scherm
@@ -30,62 +33,60 @@ const TabNavigation = () => {
   };
   
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
-      <div className="flex justify-around items-center h-16">
-        {/* Dashboard tab */}
-        <Link 
-          to="/" 
-          className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/') ? 'text-primary-600' : 'text-gray-500'
-          }`}
+    <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-10">
+      <div className="grid grid-cols-5 h-16">
+        <NavLink
+          to="/"
+          className={({ isActive }) => `
+            flex flex-col items-center justify-center
+            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
+          `}
         >
           <FaHome className="text-xl mb-1" />
           <span className="text-xs">Dashboard</span>
-        </Link>
+        </NavLink>
         
-        {/* Wandelingen tab */}
-        <Link 
-          to="/walks" 
-          className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/walks') ? 'text-primary-600' : 'text-gray-500'
-          }`}
+        <NavLink
+          to="/walks"
+          className={({ isActive }) => `
+            flex flex-col items-center justify-center
+            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
+          `}
         >
-          <FaWalking className="text-xl mb-1" />
+          <FaRoute className="text-xl mb-1" />
           <span className="text-xs">Wandelingen</span>
-        </Link>
+        </NavLink>
         
-        {/* Nieuwe wandeling knop (in het midden) */}
-        <Link 
-          to="/new-walk" 
-          className="flex flex-col items-center justify-center w-full h-full"
+        <div className="flex items-center justify-center">
+          <Link
+            to="/new-walk"
+            className="bg-primary-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transform -translate-y-5 hover:bg-primary-700 transition-colors"
+          >
+            <FaPlus className="text-xl" />
+          </Link>
+        </div>
+        
+        <NavLink
+          to="/birding"
+          className={({ isActive }) => `
+            flex flex-col items-center justify-center
+            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
+          `}
         >
-          <div className="bg-primary-600 text-white rounded-full p-3 mb-1 shadow-md">
-            <FaPlus className="text-lg" />
-          </div>
-          <span className="text-xs text-gray-500">Nieuw</span>
-        </Link>
+          <FaBinoculars className="text-xl mb-1" />
+          <span className="text-xs">Vogels</span>
+        </NavLink>
         
-        {/* Podcast tab */}
-        <Link 
-          to="/podcast" 
-          className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/podcast') ? 'text-primary-600' : 'text-gray-500'
-          }`}
-        >
-          <FaPodcast className="text-xl mb-1" />
-          <span className="text-xs">Podcast</span>
-        </Link>
-        
-        {/* Profiel tab */}
-        <Link 
-          to="/profile" 
-          className={`flex flex-col items-center justify-center w-full h-full ${
-            isActive('/profile') ? 'text-primary-600' : 'text-gray-500'
-          }`}
+        <NavLink
+          to="/profile"
+          className={({ isActive }) => `
+            flex flex-col items-center justify-center
+            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
+          `}
         >
           <FaUser className="text-xl mb-1" />
           <span className="text-xs">Profiel</span>
-        </Link>
+        </NavLink>
       </div>
     </div>
   );

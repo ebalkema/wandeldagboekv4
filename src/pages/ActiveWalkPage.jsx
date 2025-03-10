@@ -33,6 +33,8 @@ import LazyVoiceButton from '../components/LazyVoiceButton';
 import ObservationItem from '../components/ObservationItem';
 import OfflineIndicator from '../components/OfflineIndicator';
 import { formatDuration } from '../utils/dateUtils';
+import BirdObservations from '../components/BirdObservations';
+import { FaPlus } from 'react-icons/fa';
 
 /**
  * Pagina voor een actieve wandeling
@@ -55,6 +57,7 @@ const ActiveWalkPage = () => {
   const [error, setError] = useState('');
   const [isOffline, setIsOffline] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [manualObservationText, setManualObservationText] = useState('');
   
   const watchIdRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -365,8 +368,7 @@ const ActiveWalkPage = () => {
   };
 
   // Start observatie opname
-  const handleStartObservation = (category = 'algemeen') => {
-    setObservationCategory(category);
+  const handleStartObservation = () => {
     setIsRecordingObservation(true);
   };
 
@@ -546,37 +548,29 @@ const ActiveWalkPage = () => {
 
   // Selecteer een categorie voor een observatie
   const handleCategorySelect = (category) => {
-    handleStartObservation(category);
+    handleStartObservation();
   };
 
   return (
     <div className="pb-20">
-      {/* Header */}
-      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-            {walk?.name || 'Wandeling'}
-          </h1>
-          <p className="text-sm text-gray-600">
-            {formatDuration(duration)}
-            {distance > 0 && ` • ${formatDistance(distance)}`}
-          </p>
-        </div>
-        
-        {currentWeather && (
-          <div className="self-end sm:self-auto">
-            <WeatherDisplay weather={currentWeather} size="medium" />
+      {/* Header met wandelinformatie */}
+      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">{walk?.name || 'Actieve wandeling'}</h1>
+            <p className="text-sm text-gray-500">
+              {walk?.startTime ? formatTime(walk.startTime) : '--:--'} - {walk?.endTime ? formatTime(walk.endTime) : '--:--'}
+            </p>
           </div>
-        )}
-      </div>
-      
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+          
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Afstand</p>
+            <p className="text-lg font-bold text-primary-600">
+              {formatDistance(distance)}
+            </p>
+          </div>
         </div>
-      )}
-      
-      {isOffline && <OfflineIndicator className="mb-4" />}
+      </div>
       
       {/* Kaart */}
       <div className="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
@@ -585,126 +579,161 @@ const ActiveWalkPage = () => {
             center={currentLocation} 
             pathPoints={pathPoints.map(p => [p.lat || p[0], p.lng || p[1]])}
             observations={observations}
-            zoom={15}
+            height="100%"
           />
         </div>
-        <div className="p-4 border-t border-gray-100">
-          <div className="flex justify-between items-center">
+      </div>
+      
+      {/* Weer en statistieken */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Weer</h2>
+          {currentWeather ? (
+            <div className="flex items-center">
+              <WeatherDisplay weather={currentWeather} iconSize="lg" />
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Temperatuur</p>
+                <p className="text-xl font-bold text-primary-600">
+                  {currentWeather.temperature}°C
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500">Weergegevens laden...</p>
+          )}
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Statistieken</h2>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="text-sm font-medium text-gray-500">Afstand:</span>
-              <span className="ml-1 text-gray-800">{formatDistance(distance)}</span>
+              <p className="text-sm text-gray-500">Duur</p>
+              <p className="text-xl font-bold text-primary-600">
+                {formatDuration(duration)}
+              </p>
             </div>
             <div>
-              <span className="text-sm font-medium text-gray-500">Duur:</span>
-              <span className="ml-1 text-gray-800">{formatDuration(duration)}</span>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-gray-500">Observaties:</span>
-              <span className="ml-1 text-gray-800">{observations.length}</span>
+              <p className="text-sm text-gray-500">Observaties</p>
+              <p className="text-xl font-bold text-primary-600">
+                {observations.length}
+              </p>
             </div>
           </div>
         </div>
       </div>
       
       {/* Observaties */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-3">
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-800">Observaties</h2>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => handleStartObservation('plant')}
-              className="bg-green-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-green-700 transition-colors"
-            >
-              Plant
-            </button>
-            <button
-              onClick={() => handleStartObservation('dier')}
-              className="bg-amber-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-amber-700 transition-colors"
-            >
-              Dier
-            </button>
-            <button
-              onClick={() => handleStartObservation('algemeen')}
-              className="bg-primary-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-primary-700 transition-colors"
-            >
-              Algemeen
-            </button>
-          </div>
+          <button 
+            onClick={handleStartObservation}
+            className="bg-primary-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-primary-700 transition-colors flex items-center"
+          >
+            <FaPlus className="mr-1" />
+            Nieuwe observatie
+          </button>
         </div>
         
         {isRecordingObservation && (
-          <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-primary-800">
-                Spreek je observatie in
-              </p>
-              <p className="text-sm text-primary-600">
-                Categorie: {observationCategory}
-              </p>
+          <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium text-primary-800">Nieuwe observatie</h3>
+              <div className="flex space-x-2">
+                <select
+                  value={observationCategory}
+                  onChange={(e) => setObservationCategory(e.target.value)}
+                  className="text-sm border-gray-300 rounded-md"
+                >
+                  <option value="algemeen">Algemeen</option>
+                  <option value="plant">Plant</option>
+                  <option value="dier">Dier</option>
+                  <option value="vogel">Vogel</option>
+                  <option value="insect">Insect</option>
+                  <option value="landschap">Landschap</option>
+                </select>
+              </div>
             </div>
-            <LazyVoiceButton 
-              onResult={handleVoiceCommand}
-              color="primary"
-              size="medium"
-              label="Spreek"
-              stopLabel="Stop"
-              listeningLabel="Luisteren..."
-              autoStop={true}
-              autoStopTime={10000}
-            />
+            <p className="text-sm text-primary-700 mb-2">
+              Spreek je observatie in of typ deze hieronder:
+            </p>
+            <div className="flex items-center">
+              <LazyVoiceButton 
+                onResult={handleVoiceCommand}
+                color="primary"
+                size="sm"
+                className="mr-2"
+              />
+              <input
+                type="text"
+                placeholder="Typ je observatie..."
+                className="flex-1 border-gray-300 rounded-md text-sm"
+                value={manualObservationText}
+                onChange={(e) => setManualObservationText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && manualObservationText.trim()) {
+                    saveObservation(manualObservationText, observationCategory);
+                    setManualObservationText('');
+                    setIsRecordingObservation(false);
+                  }
+                }}
+              />
+            </div>
           </div>
         )}
         
         {observations.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-4 text-center">
-            <p className="text-gray-600">
-              Nog geen observaties. Gebruik de knoppen hierboven of de spraakknop om observaties toe te voegen.
-            </p>
-          </div>
+          <p className="text-gray-500 text-center py-4">
+            Nog geen observaties. Gebruik de knop hierboven of de spraakknop om een observatie toe te voegen.
+          </p>
         ) : (
           <div className="space-y-4">
             {observations.map(observation => (
               <ObservationItem 
                 key={observation.id} 
-                observation={observation} 
-                onAddPhoto={(file) => handleAddPhoto(observation.id, file)}
+                observation={observation}
+                isOffline={isOffline}
               />
             ))}
           </div>
         )}
       </div>
       
-      {/* Acties */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <button
-          onClick={handleEndWalk}
-          disabled={loading}
-          className="w-full sm:w-auto bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 'Bezig...' : 'Beëindig wandeling'}
-        </button>
-      </div>
+      {/* Vogelwaarnemingen */}
+      {currentLocation && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Vogelwaarnemingen in de buurt</h2>
+          <BirdObservations 
+            location={{ lat: currentLocation[0], lng: currentLocation[1] }} 
+            radius={5}
+          />
+        </div>
+      )}
       
-      {/* Verborgen bestandsinvoer voor foto's */}
-      <input
-        type="file"
-        accept="image/*"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-      />
+      {/* Beëindig wandeling knop */}
+      {walk?.endTime && (
+        <div className="fixed bottom-20 inset-x-0 p-4 bg-white border-t border-gray-200 flex justify-center z-20">
+          <button
+            onClick={handleEndWalk}
+            className="bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 transition-colors"
+            disabled={loading}
+          >
+            {loading ? 'Bezig...' : 'Beëindig wandeling'}
+          </button>
+        </div>
+      )}
       
       {/* Spraakcommando knop */}
       <div className="fixed bottom-20 right-4 z-30">
         <LazyVoiceButton 
           onResult={handleVoiceCommand}
           label="Observatie"
-          stopLabel="Stop"
-          listeningLabel="Luisteren..."
-          autoStop={true}
-          autoStopTime={8000}
+          size="lg"
         />
       </div>
+      
+      {/* Offline indicator */}
+      {isOffline && <OfflineIndicator />}
     </div>
   );
 };

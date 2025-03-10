@@ -275,30 +275,49 @@ export const checkLocationAvailability = () => {
       return;
     }
     
-    navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-      if (result.state === 'granted' || result.state === 'prompt') {
+    // Probeer een locatie op te halen met een korte timeout
+    const timeoutId = setTimeout(() => {
+      resolve(false);
+    }, 3000);
+    
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        clearTimeout(timeoutId);
         resolve(true);
-      } else {
+      },
+      () => {
+        clearTimeout(timeoutId);
         resolve(false);
+      },
+      { timeout: 3000, maximumAge: 60000 }
+    );
+  });
+};
+
+/**
+ * Haalt de huidige positie op via de Geolocation API
+ * @returns {Promise<GeolocationPosition>} - Geolocation positie
+ */
+export const getCurrentPosition = () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation wordt niet ondersteund door deze browser.'));
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve(position);
+      },
+      (error) => {
+        reject(new Error(getErrorMessage(error)));
+      },
+      { 
+        enableHighAccuracy: true, 
+        timeout: 10000, 
+        maximumAge: 60000 
       }
-    }).catch(() => {
-      // Als de permissions API niet beschikbaar is, probeer een locatie op te halen
-      const timeoutId = setTimeout(() => {
-        resolve(false);
-      }, 5000); // Verhoogd van 3000
-      
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          clearTimeout(timeoutId);
-          resolve(true);
-        },
-        () => {
-          clearTimeout(timeoutId);
-          resolve(false);
-        },
-        { timeout: 5000, maximumAge: 60000 } // Verhoogd van 3000
-      );
-    });
+    );
   });
 };
 

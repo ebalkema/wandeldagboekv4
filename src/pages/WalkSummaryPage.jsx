@@ -7,6 +7,8 @@ import { suggestWalkToJournal, checkJournalApiSupport } from '../services/journa
 import LazyMapComponent from '../components/LazyMapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
 import ObservationItem from '../components/ObservationItem';
+import BirdObservations from '../components/BirdObservations';
+import { FaShare, FaBook } from 'react-icons/fa';
 
 /**
  * Pagina voor het weergeven van een samenvatting van een voltooide wandeling
@@ -193,156 +195,121 @@ const WalkSummaryPage = () => {
   const duration = calculateDuration();
 
   return (
-    <div>
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">{walk.name}</h1>
-        
-        <Link
-          to="/"
-          className="text-blue-600 hover:text-blue-800"
-        >
-          Terug naar dashboard
-        </Link>
-      </div>
+    <div className="max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold text-gray-800 mb-4">{walk?.name || 'Wandelsamenvatting'}</h1>
       
-      {/* Kaart sectie */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-        <div className="h-64 sm:h-80">
-          <LazyMapComponent 
-            pathPoints={pathPoints}
-            observations={observations}
-            height="100%"
-            showCurrentLocation={false}
-            showTimestamps={true}
-          />
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+          <div className="inline-block w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+          <p>Wandelgegevens laden...</p>
         </div>
-        <div className="p-4 border-t border-gray-100">
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Routedetails</h3>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-              Start
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              <span className="w-2 h-2 bg-red-500 rounded-full mr-1"></span>
-              Einde
-            </span>
-            {observations.length > 0 && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
-                Observaties ({observations.length})
-              </span>
-            )}
-          </div>
+      ) : error ? (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center text-red-600">
+          <p>{error}</p>
         </div>
-      </div>
-      
-      {/* Wandelinformatie */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">Samenvatting</h2>
-          
-          {walk.weather && (
-            <WeatherDisplay weather={walk.weather} size="small" />
-          )}
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Datum</h3>
-            <p className="text-lg text-gray-800">
-              {walk.startTime && formatDate(new Date(walk.startTime.seconds * 1000))}
-            </p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Tijd</h3>
-            <p className="text-lg text-gray-800">
-              {walk.startTime && formatTime(new Date(walk.startTime.seconds * 1000))} - 
-              {walk.endTime && formatTime(new Date(walk.endTime.seconds * 1000))}
-            </p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Duur</h3>
-            <p className="text-lg text-gray-800">
-              {duration ? formatDuration(duration) : 'Onbekend'}
-            </p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Afstand</h3>
-            <p className="text-lg text-gray-800">
-              {walk.distance ? formatDistance(walk.distance) : '0 m'}
-            </p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Observaties</h3>
-            <p className="text-lg text-gray-800">
-              {observations.length}
-            </p>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Weer</h3>
-            <p className="text-lg text-gray-800">
-              {walk.weather ? walk.weather.description : 'Onbekend'}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Observaties sectie */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Observaties</h2>
-        
-        {observations.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-gray-600">Geen observaties voor deze wandeling</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {observations.map(observation => (
-              <ObservationItem 
-                key={observation.id} 
-                observation={observation} 
-                onClick={() => {}} 
+      ) : (
+        <>
+          {/* Kaart */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <div className="h-64 sm:h-80">
+              <LazyMapComponent 
+                pathPoints={pathPoints}
+                observations={observations}
+                showTimestamps={true}
+                height="100%"
               />
-            ))}
+            </div>
           </div>
-        )}
-      </div>
-      
-      {/* Deel knoppen */}
-      <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4">
-        <button
-          className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-          onClick={handleShare}
-        >
-          Deel deze wandeling
-        </button>
-        
-        {isJournalSupported && (
-          <button
-            className="bg-gray-800 text-white py-2 px-6 rounded-lg hover:bg-gray-900 transition-colors duration-200 flex items-center justify-center"
-            onClick={handleShareToJournal}
-            disabled={sharingToJournal}
-          >
-            {sharingToJournal ? (
-              <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-              </svg>
-            )}
-            Deel met Apple Journal
-          </button>
-        )}
-      </div>
+          
+          {/* Wandelgegevens */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Afstand</p>
+                <p className="text-xl font-bold text-primary-600">
+                  {walk?.distance ? (walk.distance / 1000).toFixed(2) : '0'} km
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Duur</p>
+                <p className="text-xl font-bold text-primary-600">
+                  {calculateDuration() || '0 min'}
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Observaties</p>
+                <p className="text-xl font-bold text-primary-600">
+                  {observations.length}
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-gray-500 text-sm">Weer</p>
+                <div className="flex justify-center">
+                  {walk?.weather ? (
+                    <WeatherDisplay weather={walk.weather} iconSize="md" />
+                  ) : (
+                    <span className="text-xl font-bold text-primary-600">-</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center space-x-2 mt-4">
+              <button
+                onClick={handleShare}
+                className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors flex items-center"
+              >
+                <FaShare className="mr-2" />
+                Delen
+              </button>
+              
+              {isJournalSupported && (
+                <button
+                  onClick={handleShareToJournal}
+                  className="bg-secondary-600 text-white py-2 px-4 rounded-lg hover:bg-secondary-700 transition-colors flex items-center"
+                  disabled={sharingToJournal}
+                >
+                  <FaBook className="mr-2" />
+                  {sharingToJournal ? 'Delen...' : 'Naar Journal'}
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* Observaties */}
+          {observations.length > 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Observaties</h2>
+              <div className="space-y-4">
+                {observations.map(observation => (
+                  <ObservationItem 
+                    key={observation.id} 
+                    observation={observation} 
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6 text-center text-gray-500">
+              <p>Geen observaties voor deze wandeling</p>
+            </div>
+          )}
+          
+          {/* Vogelwaarnemingen */}
+          {walk && walk.startLocation && (
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Vogelwaarnemingen in de buurt</h2>
+              <BirdObservations 
+                location={walk.startLocation} 
+                radius={10}
+              />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

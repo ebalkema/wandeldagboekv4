@@ -16,6 +16,7 @@ const WalkSummaryPage = lazy(() => import('./pages/WalkSummaryPage'));
 const WalksPage = lazy(() => import('./pages/WalksPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const PodcastPage = lazy(() => import('./pages/PodcastPage'));
+const BirdingPage = lazy(() => import('./pages/BirdingPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
@@ -51,6 +52,7 @@ function App() {
                   <Route path="walk-summary/:walkId" element={<WalkSummaryPage />} />
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="podcast" element={<PodcastPage />} />
+                  <Route path="birding" element={<BirdingPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
