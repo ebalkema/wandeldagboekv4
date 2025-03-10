@@ -32,10 +32,14 @@ const Layout = () => {
   // Controleer of we op de podcast pagina zijn
   const isPodcastPage = currentPath === '/podcast';
   
+  // Toon geen Header op de actieve wandelingspagina, omdat deze daar apart wordt toegevoegd
+  // met specifieke props voor die pagina
+  const shouldShowHeader = !isActivePage;
+  
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Header altijd tonen */}
-      <Header />
+      {/* Header alleen tonen als we niet op een actieve wandelingspagina zijn */}
+      {shouldShowHeader && <Header />}
       
       <main className={`flex-grow w-full px-0 sm:container sm:mx-auto sm:px-4 py-2 sm:py-6 sm:max-w-screen-xl ${isMobile ? 'pb-16' : 'pb-20'}`}>
         <div className="w-full max-w-full overflow-hidden">

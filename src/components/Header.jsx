@@ -11,7 +11,7 @@ const APP_NAME = 'Wandeldagboek';
 /**
  * Component voor de navigatiebalk
  */
-const Header = ({ onAddObservation }) => {
+const Header = ({ onAddObservation, onEndWalk }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -59,26 +59,34 @@ const Header = ({ onAddObservation }) => {
     return null;
   };
   
-  // Functie om een nieuwe wandeling te starten
-  const handleStartWalk = () => {
-    navigate('/new-walk');
-  };
-  
-  // Functie om een observatie toe te voegen
+  // Voeg een observatie toe aan de actieve wandeling
   const handleAddObservation = () => {
     if (onAddObservation) {
       onAddObservation();
     }
   };
-
-  // Functie om spraakcommando's te verwerken
+  
+  // Beëindig de actieve wandeling
+  const handleEndWalk = () => {
+    if (onEndWalk) {
+      onEndWalk();
+    } else {
+      // Als er geen onEndWalk functie is meegegeven, navigeer naar de wandelsamenvatting
+      const walkId = getWalkId();
+      if (walkId) {
+        navigate(`/walk/${walkId}`);
+      }
+    }
+  };
+  
+  // Verwerk spraakcommando's
   const handleVoiceCommand = (command) => {
     if (processCommand) {
       processCommand(command);
     }
   };
   
-  // Gemeenschappelijke stijl voor actieknoppen
+  // Stijl voor knoppen
   const buttonStyle = "flex items-center justify-center px-2 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors";
   
   return (
@@ -121,14 +129,14 @@ const Header = ({ onAddObservation }) => {
                 </button>
                 
                 {/* Knop voor wandeling beëindigen */}
-                <Link
-                  to={`/walk/${getWalkId()}`}
+                <button
+                  onClick={handleEndWalk}
                   className={`${buttonStyle} bg-red-600 hover:bg-red-700`}
                   aria-label="Wandeling beëindigen"
                 >
                   <FaStop className="mr-1" />
                   <span className="hidden sm:inline">Beëindigen</span>
-                </Link>
+                </button>
               </>
             )}
           </div>

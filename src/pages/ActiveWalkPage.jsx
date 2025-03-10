@@ -695,7 +695,7 @@ const ActiveWalkPage = () => {
   return (
     <div className="pb-20">
       {/* Aangepaste Header voor actieve wandeling */}
-      <Header onAddObservation={handleStartObservation} />
+      <Header onAddObservation={handleStartObservation} onEndWalk={handleEndWalk} />
       
       {/* Header met wandelinformatie */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-4 mt-4">
