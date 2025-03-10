@@ -87,10 +87,10 @@ const TabNavigation = () => {
           label="Home" 
         />
         
-        <ExternalNavLink 
-          href={`${WEBSITE_URL}/afleveringen`}
-          icon={<FaPodcast className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />}
-          label="Podcast"
+        <ResponsiveNavLink 
+          to="/podcast" 
+          icon={<FaPodcast className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
+          label="Podcast" 
         />
         
         <ResponsiveNavLink 

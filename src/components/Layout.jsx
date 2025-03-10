@@ -3,6 +3,7 @@ import Header from './Header';
 import TabNavigation from './TabNavigation';
 import { FaHeart, FaExternalLinkAlt } from 'react-icons/fa';
 import { useEffect, useState } from 'react';
+import PodcastPage from '../pages/PodcastPage';
 
 // Website URL
 const WEBSITE_URL = 'https://www.mennoenerwin.nl';
@@ -28,6 +29,9 @@ const Layout = () => {
   // Controleer of we op een actieve wandelingspagina zijn
   const isActivePage = currentPath.includes('/active-walk/');
   
+  // Controleer of we op de podcast pagina zijn
+  const isPodcastPage = currentPath === '/podcast';
+  
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header altijd tonen */}
@@ -35,7 +39,7 @@ const Layout = () => {
       
       <main className={`flex-grow container mx-auto px-2 sm:px-4 py-2 sm:py-6 max-w-screen-xl ${isMobile ? 'pb-16' : 'pb-20'}`}>
         <div className="w-full max-w-full overflow-hidden">
-          <Outlet />
+          {isPodcastPage ? <PodcastPage /> : <Outlet />}
         </div>
       </main>
       

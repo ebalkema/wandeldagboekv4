@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FaPodcast, FaSpotify, FaApple, FaGoogle, FaYoutube, FaLeaf, FaTree, FaBinoculars, FaGlobe } from 'react-icons/fa';
 
 // Website URL
