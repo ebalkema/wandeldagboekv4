@@ -204,7 +204,7 @@ const MapComponent = ({
 
   // Voeg vogelwaarnemingen toe aan de kaart
   useEffect(() => {
-    if (mapInstanceRef.current && birdLocations && birdLocations.length > 0) {
+    if (mapInstanceRef.current && birdLocations && (Array.isArray(birdLocations) ? birdLocations.length > 0 : birdLocations)) {
       // Verwijder bestaande vogelmarkers
       if (birdMarkersLayerRef.current) {
         birdMarkersLayerRef.current.clearLayers();
@@ -246,13 +246,33 @@ const MapComponent = ({
           const marker = L.marker([location.lat, location.lng], { icon }).addTo(birdMarkersLayerRef.current);
           
           // Voeg popup toe met informatie
-          const popupContent = `
-            <div class="bird-popup">
-              <h3 class="font-bold">${location.dutchName || location.name}</h3>
-              ${location.dutchName ? `<p class="text-sm text-gray-600">${location.name}</p>` : ''}
-              <p class="text-xs mt-1">${location.type === 'hotspot' ? 'Hotspot' : 'Vogelwaarneming'}</p>
-            </div>
-          `;
+          let popupContent = '';
+          
+          if (location.type === 'hotspot') {
+            popupContent = `
+              <div class="bird-popup">
+                <h3 class="font-bold">${location.name}</h3>
+                <p class="text-xs mt-1">Hotspot met ${location.numSpeciesAllTime || 'meerdere'} soorten</p>
+              </div>
+            `;
+          } else {
+            // Formateer de datum
+            const observationDate = location.observationDate ? 
+              new Date(location.observationDate).toLocaleDateString('nl-NL') : '';
+            
+            popupContent = `
+              <div class="bird-popup">
+                <h3 class="font-bold">${location.dutchName || location.name}</h3>
+                ${location.dutchName && location.commonName ? `<p class="text-sm text-gray-600">${location.commonName}</p>` : ''}
+                ${location.scientificName ? `<p class="text-xs italic text-gray-500">${location.scientificName}</p>` : ''}
+                <div class="mt-2 text-xs">
+                  ${location.howMany ? `<p>${location.howMany} exempla${location.howMany === 1 ? 'ar' : 'ren'}</p>` : ''}
+                  ${observationDate ? `<p>Waargenomen op: ${observationDate}</p>` : ''}
+                </div>
+              </div>
+            `;
+          }
+          
           marker.bindPopup(popupContent);
           
           // Voeg click handler toe
@@ -269,7 +289,10 @@ const MapComponent = ({
       // Als er meerdere markers zijn, zoom uit om ze allemaal te tonen
       if (markers.length > 1) {
         const group = L.featureGroup(markers);
-        mapInstanceRef.current.fitBounds(group.getBounds(), { padding: [50, 50] });
+        mapInstanceRef.current.fitBounds(group.getBounds(), { 
+          padding: [50, 50],
+          maxZoom: 14 // Beperk het inzoomen om een beter overzicht te houden
+        });
       } 
       // Als er maar één marker is, zoom in op die locatie
       else if (markers.length === 1 && locationsArray.length === 1) {

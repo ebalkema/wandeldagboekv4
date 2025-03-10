@@ -99,9 +99,29 @@ const BirdObservations = ({ location, radius, onBirdLocationSelect }) => {
         lat: obs.location.lat,
         lng: obs.location.lng,
         name: obs.dutchName || obs.commonName,
+        scientificName: obs.scientificName,
+        dutchName: obs.dutchName,
+        commonName: obs.commonName,
+        howMany: obs.howMany,
+        observationDate: obs.observationDate,
         type: 'bird'
       }));
-      onBirdLocationSelect(birdLocations, true);
+
+      // Voeg ook hotspots toe als we in de hotspots tab zijn
+      if (activeTab === 'hotspots') {
+        const hotspotLocations = hotspots.map(hotspot => ({
+          lat: hotspot.lat,
+          lng: hotspot.lng,
+          name: hotspot.name,
+          numSpeciesAllTime: hotspot.numSpeciesAllTime,
+          type: 'hotspot'
+        }));
+        
+        // Combineer vogels en hotspots
+        onBirdLocationSelect([...birdLocations, ...hotspotLocations], true, searchRadius);
+      } else {
+        onBirdLocationSelect(birdLocations, true, searchRadius);
+      }
     }
   };
   

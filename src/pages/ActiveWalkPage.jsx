@@ -66,6 +66,7 @@ const ActiveWalkPage = () => {
   const [duration, setDuration] = useState(0);
   const [manualObservationText, setManualObservationText] = useState('');
   const [consecutiveLocationErrors, setConsecutiveLocationErrors] = useState(0);
+  const [selectedBirdRadius, setSelectedBirdRadius] = useState(2);
   
   const watchIdRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -607,9 +608,14 @@ const ActiveWalkPage = () => {
   };
 
   // Functie om een vogellocatie te selecteren op de kaart
-  const handleBirdLocationSelect = (location, showAll = false) => {
+  const handleBirdLocationSelect = (location, showAll = false, radius = 2) => {
     setSelectedBirdLocation(location);
     setShowBirdsOnMap(true);
+    
+    // Sla de radius op om te tonen in de UI
+    if (radius) {
+      setSelectedBirdRadius(radius);
+    }
   };
 
   // Functie om terug te gaan naar de normale kaartweergave
@@ -651,7 +657,7 @@ const ActiveWalkPage = () => {
               <span className="text-sm font-medium">
                 {selectedBirdLocation && !Array.isArray(selectedBirdLocation) 
                   ? `${selectedBirdLocation.dutchName || selectedBirdLocation.name} op kaart` 
-                  : 'Vogelwaarnemingen op kaart'}
+                  : `Vogelwaarnemingen binnen ${selectedBirdRadius} km`}
               </span>
             </div>
             <button 
@@ -686,7 +692,7 @@ const ActiveWalkPage = () => {
         <div className="mb-6">
           <BirdObservations 
             location={currentLocation} 
-            radius={2} // 2 km radius
+            radius={selectedBirdRadius}
             onBirdLocationSelect={handleBirdLocationSelect}
           />
         </div>

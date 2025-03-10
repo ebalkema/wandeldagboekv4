@@ -28,6 +28,7 @@ const WalkSummaryPage = () => {
   const [sharingToJournal, setSharingToJournal] = useState(false);
   const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
   const [showBirdsOnMap, setShowBirdsOnMap] = useState(false);
+  const [selectedBirdRadius, setSelectedBirdRadius] = useState(null);
 
   // Controleer of Journal API wordt ondersteund
   useEffect(() => {
@@ -209,9 +210,14 @@ const WalkSummaryPage = () => {
   };
 
   // Functie om een vogellocatie te selecteren op de kaart
-  const handleBirdLocationSelect = (location, showAll = false) => {
+  const handleBirdLocationSelect = (location, showAll = false, radius = 2) => {
     setSelectedBirdLocation(location);
     setShowBirdsOnMap(true);
+    
+    // Sla de radius op om te tonen in de UI
+    if (radius) {
+      setSelectedBirdRadius(radius);
+    }
   };
 
   // Functie om terug te gaan naar de normale kaartweergave
@@ -286,7 +292,7 @@ const WalkSummaryPage = () => {
                   <span className="text-sm font-medium">
                     {selectedBirdLocation && !Array.isArray(selectedBirdLocation) 
                       ? `${selectedBirdLocation.dutchName || selectedBirdLocation.name} op kaart` 
-                      : 'Vogelwaarnemingen op kaart'}
+                      : `Vogelwaarnemingen binnen ${selectedBirdRadius} km`}
                   </span>
                 </div>
                 <button 
@@ -390,7 +396,7 @@ const WalkSummaryPage = () => {
             <div className="mb-6">
               <BirdObservations 
                 location={{ lat: walk.startLocation.lat, lng: walk.startLocation.lng }} 
-                radius={userSettings?.birdRadius}
+                radius={userSettings?.birdRadius || selectedBirdRadius || 10}
                 onBirdLocationSelect={handleBirdLocationSelect}
               />
             </div>
