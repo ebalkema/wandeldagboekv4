@@ -6,6 +6,7 @@ import { FaPlus } from 'react-icons/fa';
 import { FaPodcast } from 'react-icons/fa';
 import { FaBinoculars } from 'react-icons/fa';
 import { FaRoute } from 'react-icons/fa';
+import { FaLeaf } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 
 /**
@@ -29,12 +30,13 @@ const TabNavigation = () => {
     if (path === '/walks' && currentPath === '/walks') return true;
     if (path === '/profile' && currentPath === '/profile') return true;
     if (path === '/podcast' && currentPath === '/podcast') return true;
+    if (path === '/biodiversity' && currentPath === '/biodiversity') return true;
     return false;
   };
   
   return (
     <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-10">
-      <div className="grid grid-cols-5 h-16">
+      <div className="grid grid-cols-6 h-16">
         <NavLink
           to="/"
           className={({ isActive }) => `
@@ -43,7 +45,7 @@ const TabNavigation = () => {
           `}
         >
           <FaHome className="text-xl mb-1" />
-          <span className="text-xs">Dashboard</span>
+          <span className="text-xs">Home</span>
         </NavLink>
         
         <NavLink
@@ -75,6 +77,17 @@ const TabNavigation = () => {
         >
           <FaBinoculars className="text-xl mb-1" />
           <span className="text-xs">Vogels</span>
+        </NavLink>
+        
+        <NavLink
+          to="/biodiversity"
+          className={({ isActive }) => `
+            flex flex-col items-center justify-center
+            ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
+          `}
+        >
+          <FaLeaf className="text-xl mb-1" />
+          <span className="text-xs">Natuur</span>
         </NavLink>
         
         <NavLink

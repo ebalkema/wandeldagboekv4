@@ -34,6 +34,7 @@ import ObservationItem from '../components/ObservationItem';
 import OfflineIndicator from '../components/OfflineIndicator';
 import { formatDuration, formatTime } from '../utils/dateUtils';
 import BirdObservations from '../components/BirdObservations';
+import BiodiversityPanel from '../components/BiodiversityPanel';
 import { FaPlus } from 'react-icons/fa';
 
 /**
@@ -579,10 +580,23 @@ const ActiveWalkPage = () => {
             center={currentLocation} 
             pathPoints={pathPoints.map(p => [p.lat || p[0], p.lng || p[1]])}
             observations={observations}
-            height="100%"
+            onObservationClick={handleObservationClick}
           />
         </div>
       </div>
+      
+      {/* Biodiversiteit Panel */}
+      {currentLocation && (
+        <BiodiversityPanel 
+          location={currentLocation} 
+          radius={1000} // 1 km radius
+        />
+      )}
+      
+      {/* Weer informatie */}
+      {currentWeather && (
+        <WeatherDisplay weather={currentWeather} iconSize="lg" />
+      )}
       
       {/* Weer en statistieken */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
