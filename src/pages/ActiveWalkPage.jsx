@@ -38,6 +38,7 @@ import BirdObservations from '../components/BirdObservations';
 import BiodiversityPanel from '../components/BiodiversityPanel';
 import Header from '../components/Header';
 import { FaPlus, FaBinoculars } from 'react-icons/fa';
+import { compressImage, createThumbnail } from '../utils/imageUtils';
 
 /**
  * Pagina voor een actieve wandeling
@@ -591,7 +592,16 @@ const ActiveWalkPage = () => {
     
     try {
       setLoading(true);
-      await addPhotoToObservation(observationId, file);
+      
+      // Comprimeer de afbeelding voordat deze wordt geüpload
+      console.log('Bezig met comprimeren van afbeelding...');
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.75
+      });
+      
+      await addPhotoToObservation(observationId, compressedFile);
       
       // Ververs observaties om de nieuwe foto te tonen
       const updatedObservations = await getWalkObservations(walkId);
@@ -701,12 +711,21 @@ const ActiveWalkPage = () => {
     
     setObservationPhoto(file);
     
-    // Maak een preview van de foto
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // Maak een preview van de foto met thumbnail functie
+    createThumbnail(file, 800)
+      .then(dataUrl => {
+        setPhotoPreview(dataUrl);
+      })
+      .catch(error => {
+        console.error('Fout bij het maken van thumbnail:', error);
+        
+        // Fallback naar de oude methode als thumbnail maken mislukt
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPhotoPreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      });
   };
 
   // Verwijder geselecteerde foto

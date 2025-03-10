@@ -33,6 +33,49 @@ const getErrorMessage = (error) => {
 };
 
 /**
+ * Controleert of de browser locatieservices ondersteunt
+ * @returns {boolean} - Of de browser locatieservices ondersteunt
+ */
+export const isBrowserLocationSupported = () => {
+  return !!navigator.geolocation;
+};
+
+/**
+ * Controleert of de gebruiker toestemming heeft gegeven voor locatietoegang
+ * @returns {Promise<boolean>} - Of de gebruiker toestemming heeft gegeven
+ */
+export const checkLocationPermission = () => {
+  return new Promise((resolve) => {
+    if (!navigator.permissions || !navigator.permissions.query) {
+      // Browser ondersteunt geen permissions API, probeer direct locatie op te halen
+      console.log('Browser ondersteunt geen permissions API, probeer direct locatie op te halen');
+      getCurrentLocation(false)
+        .then(() => resolve(true))
+        .catch((error) => {
+          console.warn('Geen locatietoestemming:', error);
+          resolve(false);
+        });
+      return;
+    }
+    
+    navigator.permissions.query({ name: 'geolocation' })
+      .then((permissionStatus) => {
+        console.log('Locatietoestemming status:', permissionStatus.state);
+        resolve(permissionStatus.state === 'granted');
+        
+        // Luister naar toekomstige wijzigingen
+        permissionStatus.onchange = () => {
+          console.log('Locatietoestemming gewijzigd naar:', permissionStatus.state);
+        };
+      })
+      .catch((error) => {
+        console.warn('Fout bij het controleren van locatietoestemming:', error);
+        resolve(false);
+      });
+  });
+};
+
+/**
  * Haalt de huidige locatie op
  * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
  * @returns {Promise<{lat: number, lng: number, isDefault: boolean}>} - Huidige locatie
@@ -50,43 +93,82 @@ export const getCurrentLocation = (useFallback = true) => {
       return;
     }
     
-    const timeoutId = setTimeout(() => {
-      console.warn('Locatie ophalen duurde te lang, fallback locatie wordt gebruikt.');
-      if (useFallback) {
-        resolve({...DEFAULT_LOCATION, isDefault: true});
-      } else {
-        reject(new Error('Locatie ophalen duurde te lang.'));
-      }
-    }, 20000); // 20 seconden timeout (verhoogd van 15)
+    // Log browser en platform informatie voor debugging
+    console.log('Browser informatie:', navigator.userAgent);
+    console.log('Platform:', navigator.platform);
     
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        clearTimeout(timeoutId);
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          isDefault: false
-        });
-      },
-      (error) => {
-        clearTimeout(timeoutId);
-        const errorMessage = getErrorMessage(error);
-        console.warn('Fout bij het ophalen van locatie:', errorMessage);
-        
-        if (useFallback) {
-          console.info('Fallback locatie wordt gebruikt.');
-          resolve({...DEFAULT_LOCATION, isDefault: true, error: errorMessage});
-        } else {
-          reject(new Error(errorMessage));
-        }
-      },
-      { 
-        enableHighAccuracy: true,
-        timeout: 20000, // 20 seconden timeout (verhoogd van 15)
-        maximumAge: 60000 // 60 seconden (verhoogd van 30)
+    // Probeer eerst de locatietoestemming te controleren
+    checkLocationPermission().then(hasPermission => {
+      console.log('Heeft locatietoestemming:', hasPermission);
+      
+      if (!hasPermission && useFallback) {
+        console.info('Geen locatietoestemming, fallback locatie wordt gebruikt.');
+        resolve({...DEFAULT_LOCATION, isDefault: true});
+        return;
       }
-    );
+      
+      const timeoutId = setTimeout(() => {
+        console.warn('Locatie ophalen duurde te lang, fallback locatie wordt gebruikt.');
+        if (useFallback) {
+          resolve({...DEFAULT_LOCATION, isDefault: true});
+        } else {
+          reject(new Error('Locatie ophalen duurde te lang.'));
+        }
+      }, 15000); // 15 seconden timeout
+      
+      // Probeer eerst met hoge nauwkeurigheid
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          clearTimeout(timeoutId);
+          console.log('Locatie succesvol opgehaald met hoge nauwkeurigheid:', position.coords);
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            isDefault: false
+          });
+        },
+        (error) => {
+          console.warn('Fout bij het ophalen van locatie met hoge nauwkeurigheid:', error);
+          
+          // Probeer opnieuw met lagere nauwkeurigheid
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              clearTimeout(timeoutId);
+              console.log('Locatie succesvol opgehaald met lage nauwkeurigheid:', position.coords);
+              resolve({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                isDefault: false
+              });
+            },
+            (secondError) => {
+              clearTimeout(timeoutId);
+              const errorMessage = getErrorMessage(secondError);
+              console.warn('Fout bij het ophalen van locatie met lage nauwkeurigheid:', errorMessage);
+              
+              if (useFallback) {
+                console.info('Fallback locatie wordt gebruikt na meerdere pogingen.');
+                resolve({...DEFAULT_LOCATION, isDefault: true, error: errorMessage});
+              } else {
+                reject(new Error(errorMessage));
+              }
+            },
+            { 
+              enableHighAccuracy: false,
+              timeout: 10000,
+              maximumAge: 300000 // 5 minuten
+            }
+          );
+        },
+        { 
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000 // 1 minuut
+        }
+      );
+    });
   });
 };
 
