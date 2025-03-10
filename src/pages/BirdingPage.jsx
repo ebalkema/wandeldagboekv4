@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { FaBinoculars, FaMapMarkerAlt, FaSearch, FaFilter, FaInfoCircle } from 'react-icons/fa';
+import { FaBinoculars, FaMapMarkerAlt, FaSearch, FaFilter, FaInfoCircle, FaMap } from 'react-icons/fa';
 import { getNearbyObservations, getNearbyHotspots, getSpeciesInfo } from '../services/ebirdService';
 import { checkLocationAvailability, getCurrentPosition } from '../services/locationService';
 import LazyMapComponent from '../components/LazyMapComponent';
+import { useAuth } from '../hooks/useAuth';
 
 /**
  * Pagina voor vogelwaarnemingen
  */
 const BirdingPage = () => {
+  const { userSettings } = useAuth();
   const [location, setLocation] = useState(null);
   const [observations, setObservations] = useState([]);
   const [hotspots, setHotspots] = useState([]);
@@ -15,11 +17,13 @@ const BirdingPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('observations'); // 'observations', 'hotspots', of 'map'
   const [searchQuery, setSearchQuery] = useState('');
-  const [radius, setRadius] = useState(10);
+  const [radius, setRadius] = useState(userSettings?.birdRadius || 10);
   const [days, setDays] = useState(7);
   const [selectedSpecies, setSelectedSpecies] = useState(null);
   const [speciesInfo, setSpeciesInfo] = useState(null);
   const [speciesInfoLoading, setSpeciesInfoLoading] = useState(false);
+  const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
+  const [showBirdsOnMap, setShowBirdsOnMap] = useState(false);
   
   // Haal de huidige locatie op
   useEffect(() => {
@@ -47,6 +51,13 @@ const BirdingPage = () => {
     
     getLocation();
   }, []);
+  
+  // Update radius wanneer userSettings veranderen
+  useEffect(() => {
+    if (userSettings?.birdRadius) {
+      setRadius(userSettings.birdRadius);
+    }
+  }, [userSettings]);
   
   // Haal vogelwaarnemingen en hotspots op wanneer de locatie verandert
   useEffect(() => {
@@ -90,6 +101,38 @@ const BirdingPage = () => {
     }
   };
   
+  // Functie om een vogellocatie te selecteren op de kaart
+  const handleBirdLocationSelect = (location, showAll = false) => {
+    setSelectedBirdLocation(location);
+    setShowBirdsOnMap(true);
+    setActiveTab('map'); // Schakel naar de kaart tab
+  };
+  
+  // Functie om terug te gaan naar de normale kaartweergave
+  const handleResetMapView = () => {
+    setSelectedBirdLocation(null);
+    setShowBirdsOnMap(false);
+  };
+  
+  // Functie om alle vogels op de kaart te tonen
+  const handleShowAllBirdsOnMap = () => {
+    const birdLocations = observations.map(obs => ({
+      lat: obs.location.lat,
+      lng: obs.location.lng,
+      name: obs.dutchName || obs.commonName,
+      scientificName: obs.scientificName,
+      dutchName: obs.dutchName,
+      commonName: obs.commonName,
+      howMany: obs.howMany,
+      observationDate: obs.observationDate,
+      type: 'bird'
+    }));
+    
+    setSelectedBirdLocation(birdLocations);
+    setShowBirdsOnMap(true);
+    setActiveTab('map'); // Schakel naar de kaart tab
+  };
+  
   // Groepeer waarnemingen per locatie
   const groupedObservations = observations.reduce((groups, obs) => {
     const locationName = obs.location.name;
@@ -129,33 +172,6 @@ const BirdingPage = () => {
     groups[locationName].push(obs);
     return groups;
   }, {});
-  
-  // Bereid kaartmarkers voor
-  const mapMarkers = [];
-  
-  // Voeg waarnemingen toe aan markers
-  filteredObservations.forEach(obs => {
-    if (obs.location && obs.location.lat && obs.location.lng) {
-      mapMarkers.push({
-        lat: obs.location.lat,
-        lng: obs.location.lng,
-        title: obs.commonName,
-        description: `${obs.howMany} exemplaren op ${new Date(obs.observationDate).toLocaleDateString('nl-NL')}`,
-        type: 'observation'
-      });
-    }
-  });
-  
-  // Voeg hotspots toe aan markers
-  filteredHotspots.forEach(spot => {
-    mapMarkers.push({
-      lat: spot.latitude,
-      lng: spot.longitude,
-      title: spot.name,
-      description: `${spot.numSpeciesAllTime} soorten waargenomen`,
-      type: 'hotspot'
-    });
-  });
   
   // Toon soortinformatie
   const handleSpeciesClick = (species) => {
@@ -289,7 +305,7 @@ const BirdingPage = () => {
             onClick={() => setActiveTab('map')}
           >
             <div className="flex items-center justify-center">
-              <FaMapMarkerAlt className="mr-2" />
+              <FaMap className="mr-2" />
               <span>Kaart</span>
             </div>
           </button>
@@ -310,9 +326,20 @@ const BirdingPage = () => {
                 <h3 className="text-lg font-semibold text-gray-800">
                   Recente vogelwaarnemingen
                 </h3>
-                <span className="text-sm text-gray-500">
-                  {filteredObservations.length} soorten gevonden
-                </span>
+                <div className="flex items-center">
+                  {observations.length > 0 && (
+                    <button 
+                      onClick={handleShowAllBirdsOnMap}
+                      className="mr-2 text-sm bg-primary-100 text-primary-700 px-3 py-1 rounded-full flex items-center"
+                    >
+                      <FaMap className="mr-1" />
+                      <span>Toon op kaart</span>
+                    </button>
+                  )}
+                  <span className="text-sm text-gray-500">
+                    {filteredObservations.length} soorten gevonden
+                  </span>
+                </div>
               </div>
               
               {filteredObservations.length === 0 ? (
@@ -341,7 +368,15 @@ const BirdingPage = () => {
                           >
                             <div className="flex justify-between items-start">
                               <div>
-                                <p className="font-medium text-gray-800">{obs.commonName}</p>
+                                <p className="font-medium text-gray-800">
+                                  {obs.dutchName ? (
+                                    <>
+                                      {obs.dutchName} <span className="text-gray-500 text-sm">({obs.commonName})</span>
+                                    </>
+                                  ) : (
+                                    obs.commonName
+                                  )}
+                                </p>
                                 <p className="text-sm text-gray-500 italic">{obs.scientificName}</p>
                               </div>
                               <div className="text-right">
@@ -356,8 +391,18 @@ const BirdingPage = () => {
                                 )}
                               </div>
                             </div>
-                            <div className="mt-1 text-xs text-gray-500 flex items-center">
+                            <div className="mt-1 text-xs text-gray-500 flex items-center justify-between">
                               <span>{new Date(obs.observationDate).toLocaleDateString('nl-NL')}</span>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleBirdLocationSelect(obs);
+                                }}
+                                className="text-primary-600 flex items-center"
+                              >
+                                <FaMap className="mr-1" />
+                                <span>Toon op kaart</span>
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -399,15 +444,31 @@ const BirdingPage = () => {
                               {hotspot.numSpeciesAllTime} soorten waargenomen
                             </p>
                           </div>
-                          <a
-                            href={`https://ebird.org/hotspot/${hotspot.locId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
-                          >
-                            <span>Details</span>
-                            <FaInfoCircle className="ml-1" />
-                          </a>
+                          <div className="flex items-center space-x-2">
+                            <button 
+                              onClick={() => handleBirdLocationSelect({
+                                lat: hotspot.latitude,
+                                lng: hotspot.longitude,
+                                name: hotspot.name,
+                                type: 'hotspot',
+                                numSpeciesAllTime: hotspot.numSpeciesAllTime
+                              })}
+                              className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
+                            >
+                              <FaMap className="mr-1" />
+                              <span>Toon op kaart</span>
+                            </button>
+                            <a
+                              href={`https://ebird.org/hotspot/${hotspot.locId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span>Details</span>
+                              <FaInfoCircle className="ml-1" />
+                            </a>
+                          </div>
                         </div>
                         {hotspot.latestObsDate && (
                           <div className="mt-1 text-xs text-gray-500 flex items-center">
@@ -425,6 +486,24 @@ const BirdingPage = () => {
           {!loading && activeTab === 'map' && (
             <>
               <div className="mb-4">
+                {showBirdsOnMap && (
+                  <div className="bg-primary-50 p-2 flex justify-between items-center mb-2 rounded-lg">
+                    <div className="flex items-center">
+                      <FaBinoculars className="text-primary-600 mr-2" />
+                      <span className="text-sm font-medium">
+                        {selectedBirdLocation && !Array.isArray(selectedBirdLocation) 
+                          ? `${selectedBirdLocation.dutchName || selectedBirdLocation.name} op kaart` 
+                          : `Vogelwaarnemingen binnen ${radius} km`}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={handleResetMapView}
+                      className="text-xs bg-white text-primary-600 border border-primary-300 px-2 py-1 rounded hover:bg-primary-50"
+                    >
+                      Terug naar overzicht
+                    </button>
+                  </div>
+                )}
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">
                   Kaart van waarnemingen en hotspots
                 </h3>
@@ -432,7 +511,7 @@ const BirdingPage = () => {
                   {location && (
                     <LazyMapComponent
                       center={[location.lat, location.lng]}
-                      markers={mapMarkers}
+                      birdLocations={selectedBirdLocation}
                       zoom={10}
                       height="100%"
                     />
@@ -441,11 +520,11 @@ const BirdingPage = () => {
               </div>
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center">
-                  <span className="w-3 h-3 bg-blue-500 rounded-full mr-1"></span>
+                  <span className="w-3 h-3 bg-yellow-500 rounded-full mr-1"></span>
                   <span className="text-gray-700">Waarnemingen ({filteredObservations.length})</span>
                 </div>
                 <div className="flex items-center">
-                  <span className="w-3 h-3 bg-red-500 rounded-full mr-1"></span>
+                  <span className="w-3 h-3 bg-blue-500 rounded-full mr-1"></span>
                   <span className="text-gray-700">Hotspots ({filteredHotspots.length})</span>
                 </div>
               </div>
@@ -475,7 +554,12 @@ const BirdingPage = () => {
                 </div>
               ) : (
                 <>
-                  <h4 className="text-xl font-bold text-gray-800 mb-1">{selectedSpecies.commonName}</h4>
+                  <h4 className="text-xl font-bold text-gray-800 mb-1">
+                    {selectedSpecies.dutchName || selectedSpecies.commonName}
+                  </h4>
+                  {selectedSpecies.dutchName && (
+                    <p className="text-gray-600 mb-1">{selectedSpecies.commonName}</p>
+                  )}
                   <p className="text-gray-600 italic mb-4">{selectedSpecies.scientificName}</p>
                   
                   {speciesInfo && (
@@ -518,7 +602,18 @@ const BirdingPage = () => {
                     </div>
                   </div>
                   
-                  <div className="mt-6 flex justify-center">
+                  <div className="mt-6 flex justify-between">
+                    <button
+                      onClick={() => {
+                        handleBirdLocationSelect(selectedSpecies);
+                        handleCloseSpeciesInfo();
+                      }}
+                      className="bg-primary-100 text-primary-700 py-2 px-4 rounded-lg hover:bg-primary-200 transition-colors flex items-center"
+                    >
+                      <FaMap className="mr-2" />
+                      <span>Toon op kaart</span>
+                    </button>
+                    
                     <a
                       href={`https://ebird.org/species/${selectedSpecies.speciesCode}`}
                       target="_blank"
