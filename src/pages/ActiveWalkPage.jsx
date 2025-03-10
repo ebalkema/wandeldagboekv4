@@ -287,6 +287,10 @@ const ActiveWalkPage = () => {
             console.log('Wandeling beëindigen');
             handleEndWalk();
             break;
+          case 'STOP_LISTENING':
+            console.log('Stoppen met luisteren');
+            // Geen actie nodig, de VoiceButton component handelt dit af
+            break;
           case 'TEXT':
             // Als het geen specifiek commando is, behandel als observatie
             console.log('Tekst als observatie behandelen:', command.text);
@@ -438,152 +442,135 @@ const ActiveWalkPage = () => {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Offline indicator */}
-      <OfflineIndicator />
-      
-      {/* Offline waarschuwing */}
-      {isOffline && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
-          <div className="flex items-center">
-            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <p>Je bent offline. Wandelgegevens worden lokaal opgeslagen en gesynchroniseerd wanneer je weer online bent.</p>
+    <div className="pb-20">
+      {/* Header */}
+      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+            {walk?.title || 'Wandeling'}
+          </h1>
+          <p className="text-sm text-gray-600">
+            {formatDuration(duration)}
+            {distance > 0 && ` • ${formatDistance(distance)}`}
+          </p>
+        </div>
+        
+        {currentWeather && (
+          <div className="self-end sm:self-auto">
+            <WeatherDisplay weather={currentWeather} size="medium" />
           </div>
+        )}
+      </div>
+      
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
         </div>
       )}
       
-      {/* Kaart sectie */}
-      <div className="h-1/2 mb-4">
-        <MapComponent 
-          currentLocation={currentLocation}
-          pathPoints={pathPoints}
-          observations={observations}
-          height="100%"
-          offlineMode={isOffline}
-        />
-      </div>
+      {isOffline && <OfflineIndicator className="mb-4" />}
       
-      {/* Wandelinformatie */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">{walk?.name || 'Actieve wandeling'}</h1>
-            <p className="text-sm text-gray-600">
-              Afstand: {(distance / 1000).toFixed(2)} km • 
-              Observaties: {observations.length}
-            </p>
-          </div>
-          
-          {currentWeather && (
-            <WeatherDisplay weather={currentWeather} size="medium" />
-          )}
+      {/* Kaart */}
+      <div className="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="h-64 sm:h-80">
+          <MapComponent 
+            center={currentLocation} 
+            pathPoints={pathPoints}
+            observations={observations}
+            zoom={15}
+          />
         </div>
       </div>
       
-      {/* Observatie knoppen */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Voeg een observatie toe</h2>
-        
-        {isRecordingObservation ? (
-          <div className="bg-blue-50 p-3 rounded-lg mb-3 animate-pulse">
-            <p className="text-blue-800 font-medium">Luisteren naar observatie...</p>
-            <p className="text-sm text-blue-600 mt-1">Categorie: {observationCategory}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 mb-3">
+      {/* Observaties */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">Observaties</h2>
+          <div className="flex space-x-2">
             <button
-              onClick={() => handleCategorySelect('algemeen')}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg transition-colors duration-200"
+              onClick={() => handleStartObservation('plant')}
+              className="bg-green-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-green-700 transition-colors"
+            >
+              Plant
+            </button>
+            <button
+              onClick={() => handleStartObservation('dier')}
+              className="bg-amber-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-amber-700 transition-colors"
+            >
+              Dier
+            </button>
+            <button
+              onClick={() => handleStartObservation('algemeen')}
+              className="bg-primary-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-primary-700 transition-colors"
             >
               Algemeen
             </button>
-            <button
-              onClick={() => handleCategorySelect('vogels')}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-800 py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Vogels
-            </button>
-            <button
-              onClick={() => handleCategorySelect('planten')}
-              className="bg-green-100 hover:bg-green-200 text-green-800 py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Planten
-            </button>
-            <button
-              onClick={() => handleCategorySelect('dieren')}
-              className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 py-2 px-4 rounded-lg transition-colors duration-200"
-            >
-              Dieren
-            </button>
+          </div>
+        </div>
+        
+        {isRecordingObservation && (
+          <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-4 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-primary-800">
+                Spreek je observatie in
+              </p>
+              <p className="text-sm text-primary-600">
+                Categorie: {observationCategory}
+              </p>
+            </div>
+            <VoiceButton 
+              onResult={handleVoiceCommand}
+              color="primary"
+              size="medium"
+              label="Spreek"
+              stopLabel="Stop"
+              listeningLabel="Luisteren..."
+              autoStop={true}
+              autoStopTime={10000}
+            />
           </div>
         )}
         
-        <div className="flex justify-between items-center">
-          <VoiceButton 
-            onResult={handleVoiceCommand}
-            label="Observatie"
-            listeningLabel="Luisteren..."
-            color="success"
-            size="medium"
-            disabled={isRecordingObservation}
-          />
-          
-          <div className="flex space-x-2">
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            
-            <button
-              onClick={handleAddPhoto}
-              disabled={!lastObservationIdRef.current || isOffline}
-              className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
-              title={isOffline ? "Foto's toevoegen is niet beschikbaar in offline modus" : "Voeg een foto toe aan de laatste observatie"}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-            
-            <button
-              onClick={handleEndWalk}
-              className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition-colors duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Observaties lijst */}
-      <div className="flex-grow overflow-y-auto">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Observaties</h2>
-        
         {observations.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-4 text-center">
-            <p className="text-gray-600">Nog geen observaties. Voeg je eerste observatie toe!</p>
+            <p className="text-gray-600">
+              Nog geen observaties. Gebruik de knoppen hierboven of de spraakknop om observaties toe te voegen.
+            </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {observations.map(observation => (
               <ObservationItem 
                 key={observation.id} 
                 observation={observation} 
-                onClick={() => {}} 
-                isOffline={observation.pendingSync}
+                onAddPhoto={(file) => handleAddPhoto(observation.id, file)}
               />
             ))}
           </div>
         )}
+      </div>
+      
+      {/* Acties */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between">
+        <button
+          onClick={handleEndWalk}
+          disabled={loading}
+          className="w-full sm:w-auto bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Bezig...' : 'Beëindig wandeling'}
+        </button>
+      </div>
+      
+      {/* Spraakcommando knop */}
+      <div className="fixed bottom-20 right-4 z-30">
+        <VoiceButton 
+          onResult={handleVoiceCommand}
+          label="Observatie"
+          stopLabel="Stop"
+          listeningLabel="Luisteren..."
+          autoStop={true}
+          autoStopTime={8000}
+        />
       </div>
     </div>
   );
