@@ -37,7 +37,7 @@ import { formatDuration, formatTime } from '../utils/dateUtils';
 import BirdObservations from '../components/BirdObservations';
 import BiodiversityPanel from '../components/BiodiversityPanel';
 import Header from '../components/Header';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaBinoculars } from 'react-icons/fa';
 
 /**
  * Pagina voor een actieve wandeling
@@ -55,7 +55,11 @@ const ActiveWalkPage = () => {
   const [currentWeather, setCurrentWeather] = useState(null);
   const [distance, setDistance] = useState(0);
   const [isRecordingObservation, setIsRecordingObservation] = useState(false);
+  const [observationText, setObservationText] = useState('');
   const [observationCategory, setObservationCategory] = useState('algemeen');
+  const [selectedObservation, setSelectedObservation] = useState(null);
+  const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
+  const [showBirdsOnMap, setShowBirdsOnMap] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isOffline, setIsOffline] = useState(false);
@@ -602,6 +606,18 @@ const ActiveWalkPage = () => {
     }
   };
 
+  // Functie om een vogellocatie te selecteren op de kaart
+  const handleBirdLocationSelect = (location, showAll = false) => {
+    setSelectedBirdLocation(location);
+    setShowBirdsOnMap(true);
+  };
+
+  // Functie om terug te gaan naar de normale kaartweergave
+  const handleResetMapView = () => {
+    setSelectedBirdLocation(null);
+    setShowBirdsOnMap(false);
+  };
+
   return (
     <div className="pb-20">
       {/* Aangepaste Header voor actieve wandeling */}
@@ -628,11 +644,30 @@ const ActiveWalkPage = () => {
       
       {/* Kaart */}
       <div className="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
+        {showBirdsOnMap && (
+          <div className="bg-primary-50 p-2 flex justify-between items-center">
+            <div className="flex items-center">
+              <FaBinoculars className="text-primary-600 mr-2" />
+              <span className="text-sm font-medium">
+                {selectedBirdLocation && !Array.isArray(selectedBirdLocation) 
+                  ? `${selectedBirdLocation.dutchName || selectedBirdLocation.name} op kaart` 
+                  : 'Vogelwaarnemingen op kaart'}
+              </span>
+            </div>
+            <button 
+              onClick={handleResetMapView}
+              className="text-xs bg-white text-primary-600 border border-primary-300 px-2 py-1 rounded hover:bg-primary-50"
+            >
+              Terug naar wandeling
+            </button>
+          </div>
+        )}
         <div className="h-64 sm:h-80">
           <LazyMapComponent 
             center={currentLocation} 
             pathPoints={pathPoints.map(p => [p.lat || p[0], p.lng || p[1]])}
             observations={observations}
+            birdLocations={selectedBirdLocation}
             onObservationClick={handleObservationClick}
           />
         </div>
@@ -644,6 +679,17 @@ const ActiveWalkPage = () => {
           location={currentLocation} 
           radius={1000} // 1 km radius
         />
+      )}
+      
+      {/* Vogelwaarnemingen */}
+      {currentLocation && (
+        <div className="mb-6">
+          <BirdObservations 
+            location={currentLocation} 
+            radius={2} // 2 km radius
+            onBirdLocationSelect={handleBirdLocationSelect}
+          />
+        </div>
       )}
       
       {/* Weer informatie */}
@@ -765,22 +811,6 @@ const ActiveWalkPage = () => {
           </div>
         )}
       </div>
-      
-      {/* Vogelwaarnemingen */}
-      {currentLocation && (
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Vogelwaarnemingen in de buurt</h2>
-            <span className="text-sm text-gray-500">
-              Zoekradius: {userSettings?.birdRadius || 10} km
-            </span>
-          </div>
-          <BirdObservations 
-            location={{ lat: currentLocation[0], lng: currentLocation[1] }} 
-            radius={userSettings?.birdRadius}
-          />
-        </div>
-      )}
       
       {/* Beëindig wandeling knop */}
       <div className="fixed bottom-20 inset-x-0 p-4 bg-white border-t border-gray-200 flex justify-center z-20">

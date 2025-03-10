@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { FaBinoculars, FaMapMarkerAlt, FaCalendarAlt, FaExclamationCircle, FaInfoCircle } from 'react-icons/fa';
+import { FaBinoculars, FaMapMarkerAlt, FaCalendarAlt, FaExclamationCircle, FaInfoCircle, FaMap } from 'react-icons/fa';
 import { getNearbyObservations, getNearbyHotspots, getBirdImageUrl } from '../services/ebirdService';
 import { useAuth } from '../context/AuthContext';
 
 /**
  * Component voor het weergeven van vogelwaarnemingen in de buurt
  */
-const BirdObservations = ({ location, radius }) => {
+const BirdObservations = ({ location, radius, onBirdLocationSelect }) => {
   const { userSettings } = useAuth();
   const [observations, setObservations] = useState([]);
   const [hotspots, setHotspots] = useState([]);
@@ -14,6 +14,7 @@ const BirdObservations = ({ location, radius }) => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('observations'); // 'observations' of 'hotspots'
   const [birdImages, setBirdImages] = useState({});
+  const [showBirdsOnMap, setShowBirdsOnMap] = useState(false);
   
   // Gebruik de radius uit de gebruikersinstellingen als er geen radius is opgegeven
   const searchRadius = radius || userSettings.birdRadius || 10;
@@ -64,6 +65,45 @@ const BirdObservations = ({ location, radius }) => {
     
     fetchData();
   }, [location, searchRadius, userSettings.birdRadius]);
+
+  // Functie om naar een vogellocatie te navigeren op de kaart
+  const handleBirdLocationClick = (obs) => {
+    if (onBirdLocationSelect && obs.location && obs.location.lat && obs.location.lng) {
+      onBirdLocationSelect({
+        lat: obs.location.lat,
+        lng: obs.location.lng,
+        name: obs.commonName,
+        dutchName: obs.dutchName,
+        type: 'bird'
+      });
+    }
+  };
+
+  // Functie om naar een hotspot te navigeren op de kaart
+  const handleHotspotLocationClick = (hotspot) => {
+    if (onBirdLocationSelect && hotspot.lat && hotspot.lng) {
+      onBirdLocationSelect({
+        lat: hotspot.lat,
+        lng: hotspot.lng,
+        name: hotspot.name,
+        type: 'hotspot'
+      });
+    }
+  };
+
+  // Functie om alle vogels op de kaart te tonen
+  const handleShowAllBirdsOnMap = () => {
+    setShowBirdsOnMap(true);
+    if (onBirdLocationSelect) {
+      const birdLocations = observations.map(obs => ({
+        lat: obs.location.lat,
+        lng: obs.location.lng,
+        name: obs.dutchName || obs.commonName,
+        type: 'bird'
+      }));
+      onBirdLocationSelect(birdLocations, true);
+    }
+  };
   
   // Groepeer waarnemingen per locatie
   const groupedObservations = observations.reduce((groups, obs) => {
@@ -140,9 +180,20 @@ const BirdObservations = ({ location, radius }) => {
               <h3 className="text-lg font-semibold text-gray-800">
                 Recente vogelwaarnemingen
               </h3>
-              <span className="text-sm text-gray-500">
-                {observations.length} soorten gevonden binnen {searchRadius} km
-              </span>
+              <div className="flex items-center">
+                {onBirdLocationSelect && observations.length > 0 && (
+                  <button 
+                    onClick={handleShowAllBirdsOnMap}
+                    className="mr-2 text-sm bg-primary-100 text-primary-700 px-3 py-1 rounded-full flex items-center"
+                  >
+                    <FaMap className="mr-1" />
+                    <span>Toon op kaart</span>
+                  </button>
+                )}
+                <span className="text-sm text-gray-500">
+                  {observations.length} soorten gevonden binnen {searchRadius} km
+                </span>
+              </div>
             </div>
             
             {observations.length === 0 ? (
@@ -164,7 +215,11 @@ const BirdObservations = ({ location, radius }) => {
                     </div>
                     <div className="divide-y divide-gray-100">
                       {locationObservations.map((obs) => (
-                        <div key={`${obs.speciesCode}-${obs.observationDate}`} className="px-4 py-3 hover:bg-gray-50">
+                        <div 
+                          key={`${obs.speciesCode}-${obs.observationDate}`} 
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleBirdLocationClick(obs)}
+                        >
                           <div className="flex justify-between items-start">
                             <div className="flex items-start">
                               {birdImages[obs.speciesCode] && (
@@ -205,9 +260,17 @@ const BirdObservations = ({ location, radius }) => {
                               )}
                             </div>
                           </div>
-                          <div className="mt-1 text-xs text-gray-500 flex items-center">
-                            <FaCalendarAlt className="mr-1" />
-                            <span>{new Date(obs.observationDate).toLocaleDateString('nl-NL')}</span>
+                          <div className="mt-1 text-xs text-gray-500 flex items-center justify-between">
+                            <div className="flex items-center">
+                              <FaCalendarAlt className="mr-1" />
+                              <span>{new Date(obs.observationDate).toLocaleDateString('nl-NL')}</span>
+                            </div>
+                            {onBirdLocationSelect && (
+                              <div className="text-primary-600 flex items-center">
+                                <FaMapMarkerAlt className="mr-1" />
+                                <span>Toon op kaart</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -240,7 +303,11 @@ const BirdObservations = ({ location, radius }) => {
             ) : (
               <div className="space-y-4">
                 {hotspots.map((hotspot) => (
-                  <div key={hotspot.locId} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div 
+                    key={hotspot.locId} 
+                    className="border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleHotspotLocationClick(hotspot)}
+                  >
                     <div className="px-4 py-3">
                       <div className="flex justify-between items-start">
                         <div>
@@ -248,23 +315,20 @@ const BirdObservations = ({ location, radius }) => {
                           <p className="text-sm text-gray-500">
                             {hotspot.numSpeciesAllTime} soorten waargenomen
                           </p>
+                          <div className="mt-1 text-xs text-gray-500 flex items-center">
+                            <FaMapMarkerAlt className="mr-1" />
+                            <span>
+                              {hotspot.distanceKm.toFixed(1)} km afstand
+                            </span>
+                          </div>
                         </div>
-                        <a
-                          href={`https://ebird.org/hotspot/${hotspot.locId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-600 hover:text-primary-800 text-sm flex items-center"
-                        >
-                          <span>Details</span>
-                          <FaInfoCircle className="ml-1" />
-                        </a>
+                        {onBirdLocationSelect && (
+                          <div className="text-primary-600 text-sm flex items-center">
+                            <FaMap className="mr-1" />
+                            <span>Toon op kaart</span>
+                          </div>
+                        )}
                       </div>
-                      {hotspot.latestObsDate && (
-                        <div className="mt-1 text-xs text-gray-500 flex items-center">
-                          <FaCalendarAlt className="mr-1" />
-                          <span>Laatste waarneming: {new Date(hotspot.latestObsDate).toLocaleDateString('nl-NL')}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}

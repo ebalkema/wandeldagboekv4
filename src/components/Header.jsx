@@ -100,21 +100,19 @@ const Header = ({ onAddObservation }) => {
   
   return (
     <header className="bg-primary-600 text-white shadow-md">
-      {/* App naam altijd bovenaan */}
-      <div className="bg-primary-700 py-1 text-center">
-        <h1 className="text-sm font-bold">{APP_NAME}</h1>
-      </div>
-      
       <div className="container mx-auto px-2 py-2 sm:px-4 sm:py-3">
         <div className="flex justify-between items-center">
-          {/* Logo en pagina titel */}
+          {/* Logo, app naam en pagina titel */}
           <Link to="/" className="flex items-center">
             {isPodcastPage ? (
               <FaPodcast className="h-5 w-5 mr-1.5 flex-shrink-0" />
             ) : (
               <FaLeaf className="h-5 w-5 mr-1.5 flex-shrink-0" />
             )}
-            <span className="text-base sm:text-lg font-bold truncate">{getTitle()}</span>
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold">{APP_NAME}</span>
+              <span className="text-base sm:text-lg font-bold truncate">{getTitle()}</span>
+            </div>
           </Link>
 
           {/* Actieknoppen voor specifieke pagina's */}

@@ -8,7 +8,7 @@ import LazyMapComponent from '../components/LazyMapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
 import ObservationItem from '../components/ObservationItem';
 import BirdObservations from '../components/BirdObservations';
-import { FaShare, FaBook } from 'react-icons/fa';
+import { FaShare, FaBook, FaBinoculars } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -26,6 +26,8 @@ const WalkSummaryPage = () => {
   const [error, setError] = useState('');
   const [isJournalSupported, setIsJournalSupported] = useState(false);
   const [sharingToJournal, setSharingToJournal] = useState(false);
+  const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
+  const [showBirdsOnMap, setShowBirdsOnMap] = useState(false);
 
   // Controleer of Journal API wordt ondersteund
   useEffect(() => {
@@ -206,6 +208,18 @@ const WalkSummaryPage = () => {
     }
   };
 
+  // Functie om een vogellocatie te selecteren op de kaart
+  const handleBirdLocationSelect = (location, showAll = false) => {
+    setSelectedBirdLocation(location);
+    setShowBirdsOnMap(true);
+  };
+
+  // Functie om terug te gaan naar de normale kaartweergave
+  const handleResetMapView = () => {
+    setSelectedBirdLocation(null);
+    setShowBirdsOnMap(false);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -265,12 +279,31 @@ const WalkSummaryPage = () => {
         <>
           {/* Kaart */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            {showBirdsOnMap && (
+              <div className="bg-primary-50 p-2 flex justify-between items-center">
+                <div className="flex items-center">
+                  <FaBinoculars className="text-primary-600 mr-2" />
+                  <span className="text-sm font-medium">
+                    {selectedBirdLocation && !Array.isArray(selectedBirdLocation) 
+                      ? `${selectedBirdLocation.dutchName || selectedBirdLocation.name} op kaart` 
+                      : 'Vogelwaarnemingen op kaart'}
+                  </span>
+                </div>
+                <button 
+                  onClick={handleResetMapView}
+                  className="text-xs bg-white text-primary-600 border border-primary-300 px-2 py-1 rounded hover:bg-primary-50"
+                >
+                  Terug naar wandeling
+                </button>
+              </div>
+            )}
             <div className="h-64 sm:h-80">
               <LazyMapComponent 
+                center={walk?.startLocation ? [walk.startLocation.lat, walk.startLocation.lng] : null}
                 pathPoints={pathPoints}
                 observations={observations}
+                birdLocations={selectedBirdLocation}
                 showTimestamps={true}
-                height="100%"
               />
             </div>
           </div>
@@ -353,17 +386,12 @@ const WalkSummaryPage = () => {
           )}
           
           {/* Vogelwaarnemingen */}
-          {walk && walk.startLocation && (
+          {walk?.startLocation && (
             <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Vogelwaarnemingen in de buurt</h2>
-                <span className="text-sm text-gray-500">
-                  Zoekradius: {userSettings?.birdRadius || 10} km
-                </span>
-              </div>
               <BirdObservations 
-                location={walk.startLocation} 
+                location={{ lat: walk.startLocation.lat, lng: walk.startLocation.lng }} 
                 radius={userSettings?.birdRadius}
+                onBirdLocationSelect={handleBirdLocationSelect}
               />
             </div>
           )}
