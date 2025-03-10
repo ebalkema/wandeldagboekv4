@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Header from './Header';
 import TabNavigation from './TabNavigation';
 import { FaHeart, FaExternalLinkAlt } from 'react-icons/fa';
@@ -10,9 +10,16 @@ const WEBSITE_URL = 'https://www.mennoenerwin.nl';
  * Component voor de algemene pagina-layout
  */
 const Layout = () => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+  
+  // Controleer of we op een actieve wandelingspagina zijn
+  const isActivePage = currentPath.includes('/active-walk/');
+  
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header />
+      {/* Toon de Header niet op de actieve wandelingspagina */}
+      {!isActivePage && <Header />}
       
       <main className="flex-grow container mx-auto px-4 py-4 sm:py-6 max-w-screen-xl pb-20">
         <div className="w-full max-w-full overflow-hidden">

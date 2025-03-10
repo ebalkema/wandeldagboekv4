@@ -35,6 +35,7 @@ import OfflineIndicator from '../components/OfflineIndicator';
 import { formatDuration, formatTime } from '../utils/dateUtils';
 import BirdObservations from '../components/BirdObservations';
 import BiodiversityPanel from '../components/BiodiversityPanel';
+import Header from '../components/Header';
 import { FaPlus } from 'react-icons/fa';
 
 /**
@@ -339,7 +340,15 @@ const ActiveWalkPage = () => {
 
   // Beëindig de wandeling
   const handleEndWalk = async () => {
-    if (!walkId || !currentLocation) return;
+    if (!walkId) {
+      setError('Geen wandeling ID gevonden');
+      return;
+    }
+    
+    // Als er geen currentLocation is, gebruik een fallback locatie
+    const endLocationData = currentLocation 
+      ? { lat: currentLocation[0], lng: currentLocation[1] }
+      : { lat: 52.3676, lng: 4.9041 }; // Amsterdam als fallback
     
     try {
       setLoading(true);
@@ -349,7 +358,7 @@ const ActiveWalkPage = () => {
         stopLocationTracking(watchIdRef.current);
       }
       
-      const endLocationData = { lat: currentLocation[0], lng: currentLocation[1] };
+      console.log(`Wandeling beëindigen met ID: ${walkId}, locatie:`, endLocationData, 'afstand:', distance);
       
       if (isOffline) {
         console.log('Offline modus: wandeling beëindigen in lokale opslag');
@@ -359,11 +368,14 @@ const ActiveWalkPage = () => {
         await endWalk(walkId, endLocationData, distance);
       }
       
+      // Toon een bevestiging
+      alert('Wandeling succesvol beëindigd!');
+      
       // Navigeer naar de samenvatting
-      navigate(`/walk-summary/${walkId}`);
+      navigate(`/walk/${walkId}`);
     } catch (error) {
       console.error('Fout bij het beëindigen van wandeling:', error);
-      setError('Kon wandeling niet beëindigen');
+      setError(`Kon wandeling niet beëindigen: ${error.message}`);
       setLoading(false);
     }
   };
@@ -569,8 +581,11 @@ const ActiveWalkPage = () => {
 
   return (
     <div className="pb-20">
+      {/* Aangepaste Header voor actieve wandeling */}
+      <Header onAddObservation={handleStartObservation} />
+      
       {/* Header met wandelinformatie */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+      <div className="bg-white rounded-lg shadow-md p-4 mb-4 mt-4">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold text-gray-800">{walk?.name || 'Actieve wandeling'}</h1>
