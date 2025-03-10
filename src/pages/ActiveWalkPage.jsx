@@ -15,7 +15,8 @@ import {
   stopLocationTracking, 
   calculateRouteDistance,
   formatDistance,
-  checkLocationAvailability
+  checkLocationAvailability,
+  updatePathPoints
 } from '../services/locationService';
 import { getWeatherData } from '../services/weatherService';
 import {
@@ -60,6 +61,7 @@ const ActiveWalkPage = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [duration, setDuration] = useState(0);
   const [manualObservationText, setManualObservationText] = useState('');
+  const [consecutiveLocationErrors, setConsecutiveLocationErrors] = useState(0);
   
   const watchIdRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -184,8 +186,8 @@ const ActiveWalkPage = () => {
 
   // Callback voor succesvolle locatie updates
   const handleLocationUpdate = (location) => {
-    const newLocation = [location.lat, location.lng];
-    setCurrentLocation(newLocation);
+    // Zet de huidige locatie
+    setCurrentLocation([location.lat, location.lng]);
     
     // Als dit een fallback locatie is, toon een waarschuwing
     if (location.isDefault && !error) {
@@ -195,64 +197,46 @@ const ActiveWalkPage = () => {
       setError('');
     }
     
-    // Update pathPoints
-    setPathPoints(prev => {
-      if (prev.length === 0) {
-        // Eerste punt met timestamp
-        const pointWithTimestamp = {
-          lat: newLocation[0],
-          lng: newLocation[1],
-          timestamp: new Date().toISOString()
-        };
+    // Update het pad en de afstand
+    setPathPoints(prevPoints => {
+      const updatedPoints = updatePathPoints(prevPoints, location);
+      
+      // Als er een nieuw punt is toegevoegd, update de afstand en de wandeling in de database
+      if (updatedPoints.length > prevPoints.length) {
+        // Bereken de afstand
+        const newDistance = calculateRouteDistance(updatedPoints);
+        setDistance(newDistance);
         
-        // Update de wandeling in Firestore of lokale opslag
-        updateWalkPath([pointWithTimestamp]);
-        
-        return [pointWithTimestamp];
+        // Update de wandeling in de database
+        updateWalkPath([location.lat, location.lng]);
       }
       
-      // Controleer of de nieuwe locatie significant verschilt van de vorige
-      const lastPoint = prev[prev.length - 1];
-      const lastLat = lastPoint.lat || lastPoint[0];
-      const lastLng = lastPoint.lng || lastPoint[1];
-      const latDiff = Math.abs(lastLat - newLocation[0]);
-      const lngDiff = Math.abs(lastLng - newLocation[1]);
-      
-      // Alleen toevoegen als de locatie significant is veranderd
-      if (latDiff > 0.00001 || lngDiff > 0.00001) {
-        // Nieuw punt met timestamp
-        const pointWithTimestamp = {
-          lat: newLocation[0],
-          lng: newLocation[1],
-          timestamp: new Date().toISOString()
-        };
-        
-        const newPoints = [...prev, pointWithTimestamp];
-        
-        // Update de wandeling in Firestore of lokale opslag
-        updateWalkPath(newPoints);
-        
-        // Bereken afstand
-        const calculatedDistance = calculateRouteDistance(
-          newPoints.map(p => [p.lat || p[0], p.lng || p[1]])
-        );
-        setDistance(calculatedDistance);
-        
-        return newPoints;
-      }
-      
-      return prev;
+      return updatedPoints;
     });
+    
+    // Reset de teller voor opeenvolgende fouten
+    setConsecutiveLocationErrors(0);
   };
 
   // Callback voor locatiefouten
   const handleLocationError = (error, consecutiveErrors) => {
-    // Callback voor locatiefouten
     console.error('Locatiefout in ActiveWalkPage:', error.message);
     
+    // Verhoog de teller voor opeenvolgende fouten
+    setConsecutiveLocationErrors(prev => prev + 1);
+    
     // Toon alleen een foutmelding als er meerdere fouten achter elkaar zijn
-    if (consecutiveErrors >= 3) {
+    if (consecutiveLocationErrors >= 3) {
       setError(`Locatieproblemen: ${error.message}. Probeer naar buiten te gaan of controleer je locatietoestemming.`);
+      
+      // Als er te veel opeenvolgende fouten zijn, gebruik de laatste bekende locatie
+      if (consecutiveLocationErrors >= 5 && pathPoints.length > 0) {
+        const lastPoint = pathPoints[pathPoints.length - 1];
+        if (Array.isArray(lastPoint) && lastPoint.length === 2) {
+          console.log('Gebruik laatste bekende locatie vanwege aanhoudende locatieproblemen');
+          setCurrentLocation(lastPoint);
+        }
+      }
     }
   };
 
@@ -309,29 +293,40 @@ const ActiveWalkPage = () => {
     }
   };
 
-  // Update het wandelpad in Firestore of lokale opslag
-  const updateWalkPath = async (points) => {
-    if (!walkId) return;
+  // Update het wandelpad in de database
+  const updateWalkPath = async (newPoint) => {
+    if (!walkId || !currentUser) return;
     
     try {
-      // Zorg ervoor dat alle punten het juiste formaat hebben
-      const pathPointsData = points.map(point => {
-        if (Array.isArray(point)) {
-          return { 
-            lat: point[0], 
-            lng: point[1],
-            timestamp: new Date().toISOString()
-          };
-        }
-        return point;
+      // Voeg het nieuwe punt toe aan het pad
+      const updatedPathPoints = updatePathPoints(pathPoints, { 
+        lat: newPoint[0], 
+        lng: newPoint[1] 
       });
       
-      if (isOffline) {
-        console.log('Offline modus: wandelpad updaten in lokale opslag');
-        updateOfflineWalk(walkId, { pathPoints: pathPointsData });
-      } else {
+      // Alleen updaten als er daadwerkelijk een nieuw punt is toegevoegd
+      if (updatedPathPoints.length > pathPoints.length) {
         console.log('Online modus: wandelpad updaten in Firestore');
-        await updateWalk(walkId, { pathPoints: pathPointsData });
+        
+        // Bereken de afstand
+        const calculatedDistance = calculateRouteDistance(updatedPathPoints);
+        
+        // Update de wandeling in de database
+        if (isOffline) {
+          updateOfflineWalk(walkId, {
+            pathPoints: updatedPathPoints,
+            distance: calculatedDistance
+          });
+        } else {
+          await updateWalk(walkId, {
+            pathPoints: updatedPathPoints,
+            distance: calculatedDistance
+          });
+        }
+        
+        // Update de lokale state
+        setPathPoints(updatedPathPoints);
+        setDistance(calculatedDistance);
       }
     } catch (error) {
       console.error('Fout bij het updaten van wandelpad:', error);

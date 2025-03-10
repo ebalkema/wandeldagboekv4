@@ -391,4 +391,60 @@ export const formatDistance = (meters) => {
   } else {
     return `${(meters / 1000).toFixed(2)} km`;
   }
+};
+
+/**
+ * Update het wandelpad met een nieuwe locatie
+ * @param {Array} prevPoints - Vorige punten in het pad
+ * @param {Object} location - Nieuwe locatie {lat, lng}
+ * @param {number} minDistance - Minimale afstand in meters tussen punten
+ * @returns {Array} - Bijgewerkt pad
+ */
+export const updatePathPoints = (prevPoints, location, minDistance = 5) => {
+  if (!location || !location.lat || !location.lng) {
+    console.warn('Ongeldige locatie ontvangen in updatePathPoints:', location);
+    return prevPoints;
+  }
+  
+  // Zorg ervoor dat prevPoints een array is
+  const points = Array.isArray(prevPoints) ? [...prevPoints] : [];
+  
+  // Als dit het eerste punt is, voeg het toe
+  if (points.length === 0) {
+    console.log('Eerste punt toegevoegd aan pad:', [location.lat, location.lng]);
+    return [[location.lat, location.lng]];
+  }
+  
+  // Haal het laatste punt op
+  const lastPoint = points[points.length - 1];
+  
+  // Controleer of lastPoint een array is met twee elementen
+  if (!Array.isArray(lastPoint) || lastPoint.length !== 2) {
+    console.warn('Ongeldig laatste punt in pad:', lastPoint);
+    // Voeg het nieuwe punt toe en ga verder
+    return [...points, [location.lat, location.lng]];
+  }
+  
+  // Bereken de afstand tussen het laatste punt en het nieuwe punt
+  const lastLat = lastPoint[0];
+  const lastLng = lastPoint[1];
+  const distance = calculateDistance(
+    { lat: lastLat, lng: lastLng },
+    { lat: location.lat, lng: location.lng }
+  );
+  
+  // Als de afstand groter is dan de minimale afstand, voeg het nieuwe punt toe
+  if (distance >= minDistance) {
+    const newPoints = [...points, [location.lat, location.lng]];
+    
+    // Log informatie over het pad
+    if (newPoints.length % 10 === 0) {
+      console.log(`Pad bijgewerkt: ${newPoints.length} punten, laatste afstand: ${distance.toFixed(2)}m`);
+    }
+    
+    return newPoints;
+  }
+  
+  // Anders, retourneer het ongewijzigde pad
+  return points;
 }; 

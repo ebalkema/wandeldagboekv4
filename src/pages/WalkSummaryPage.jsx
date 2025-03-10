@@ -49,13 +49,13 @@ const WalkSummaryPage = () => {
         // Haal observaties op
         const observationsData = await getWalkObservations(walkId);
         
-        // Verwijder dubbele observaties op basis van ID of inhoud
+        // Dedupliceer observaties
         const uniqueObservations = [];
         const observationIds = new Set();
         const observationTexts = new Set();
         
         observationsData.forEach(obs => {
-          // Als de observatie al is toegevoegd op basis van ID, sla over
+          // Als deze ID al is toegevoegd, sla over
           if (observationIds.has(obs.id)) return;
           
           // Als er een zeer vergelijkbare observatie is (zelfde tekst en locatie), sla over
@@ -73,8 +73,44 @@ const WalkSummaryPage = () => {
         
         // Zet pathPoints
         if (walkData.pathPoints && walkData.pathPoints.length > 0) {
-          const points = walkData.pathPoints.map(point => [point.lat, point.lng]);
+          // Controleer of pathPoints een array is of een object met geneste arrays
+          let points = [];
+          
+          if (Array.isArray(walkData.pathPoints)) {
+            // Controleer of het eerste element een array of een object is
+            if (walkData.pathPoints.length > 0) {
+              if (Array.isArray(walkData.pathPoints[0])) {
+                // Het is al een array van arrays [lat, lng]
+                points = walkData.pathPoints;
+              } else if (typeof walkData.pathPoints[0] === 'object') {
+                // Het is een array van objecten {lat, lng}
+                points = walkData.pathPoints.map(point => [point.lat, point.lng]);
+              }
+            }
+          } else if (typeof walkData.pathPoints === 'object') {
+            // Het kan een object zijn met geneste arrays
+            const keys = Object.keys(walkData.pathPoints);
+            if (keys.length > 0) {
+              points = keys.map(key => {
+                const point = walkData.pathPoints[key];
+                if (Array.isArray(point)) {
+                  return point;
+                } else if (typeof point === 'object') {
+                  return [point.lat, point.lng];
+                }
+                return null;
+              }).filter(point => point !== null);
+            }
+          }
+          
+          console.log(`Wandelpad punten: ${points.length}`);
+          if (points.length > 0) {
+            console.log('Eerste punt:', points[0], 'Laatste punt:', points[points.length - 1]);
+          }
+          
           setPathPoints(points);
+        } else {
+          console.warn('Geen pathPoints gevonden in wandeldata');
         }
       } catch (error) {
         console.error('Fout bij het ophalen van wandelgegevens:', error);
