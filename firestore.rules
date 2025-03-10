@@ -13,6 +13,8 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       // Gebruikers kunnen hun eigen document aanmaken als het nog niet bestaat
       allow create: if request.auth != null && request.auth.uid == userId;
+      // Alle gebruikers kunnen alle gebruikersdocumenten lezen voor statistieken
+      allow read: if request.auth != null;
     }
     
     // Wandelingen collectie
