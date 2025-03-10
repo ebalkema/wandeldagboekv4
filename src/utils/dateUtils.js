@@ -20,14 +20,45 @@ export const formatDate = (date, formatString = 'dd MMMM yyyy') => {
 
 /**
  * Formatteert een tijd naar een leesbare string
- * @param {Date|number|string} date - Datum om te formatteren
+ * @param {Date|number|string|Object} date - Datum om te formatteren
  * @returns {string} - Geformatteerde tijd
  */
 export const formatTime = (date) => {
   if (!date) return '';
   
-  const dateObj = typeof date === 'object' ? date : new Date(date);
-  return format(dateObj, 'HH:mm', { locale: nl });
+  try {
+    let dateObj;
+    
+    // Controleer of het een Firestore timestamp is
+    if (date && typeof date === 'object' && date.seconds !== undefined && date.nanoseconds !== undefined) {
+      // Firestore timestamp
+      dateObj = new Date(date.seconds * 1000);
+    } else if (date instanceof Date) {
+      // JavaScript Date object
+      dateObj = date;
+    } else if (typeof date === 'number') {
+      // Unix timestamp in milliseconden
+      dateObj = new Date(date);
+    } else if (typeof date === 'string') {
+      // ISO string of andere datumstring
+      dateObj = new Date(date);
+    } else {
+      // Onbekend formaat
+      console.warn('Onbekend datumformaat:', date);
+      return '--:--';
+    }
+    
+    // Controleer of de datum geldig is
+    if (isNaN(dateObj.getTime())) {
+      console.warn('Ongeldige datum:', date);
+      return '--:--';
+    }
+    
+    return format(dateObj, 'HH:mm', { locale: nl });
+  } catch (error) {
+    console.error('Fout bij het formatteren van tijd:', error, date);
+    return '--:--';
+  }
 };
 
 /**
