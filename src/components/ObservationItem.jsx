@@ -13,6 +13,9 @@ const ObservationItem = ({ observation, onClick, isOffline }) => {
 
   if (!observation) return null;
 
+  // Log de observatie voor debugging
+  console.log('Rendering ObservationItem:', observation);
+
   // Deel observatie met Apple Journal
   const handleShareToJournal = async (e) => {
     e.stopPropagation(); // Voorkom dat de onClick van de parent wordt aangeroepen
@@ -106,6 +109,7 @@ const ObservationItem = ({ observation, onClick, isOffline }) => {
     <div 
       className={`bg-white rounded-lg shadow-sm p-4 mb-3 hover:shadow-md transition-shadow duration-200 cursor-pointer ${isOffline ? 'border-l-4 border-blue-400' : ''}`}
       onClick={() => onClick && onClick(observation)}
+      id={`observation-${observation.id}`}
     >
       <div className="flex justify-between items-start">
         <div className="flex items-start">
@@ -142,6 +146,10 @@ const ObservationItem = ({ observation, onClick, isOffline }) => {
                     src={url} 
                     alt={`Foto ${index + 1}`} 
                     className="h-16 w-16 object-cover rounded-md"
+                    onError={(e) => {
+                      console.error(`Fout bij het laden van afbeelding ${index}:`, url);
+                      e.target.src = 'https://via.placeholder.com/150?text=Fout';
+                    }}
                   />
                 ))}
               </div>

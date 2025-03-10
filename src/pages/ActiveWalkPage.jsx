@@ -579,6 +579,11 @@ const ActiveWalkPage = () => {
       
       // Ververs observaties om de nieuwe foto te tonen
       const updatedObservations = await getWalkObservations(walkId);
+      
+      // Log de ontvangen observaties voor debugging
+      console.log('Bijgewerkte observaties na foto upload:', updatedObservations);
+      
+      // Zorg ervoor dat de state wordt bijgewerkt met de nieuwe observaties
       setObservations(updatedObservations);
       
       alert('Foto succesvol toegevoegd!');
@@ -656,6 +661,11 @@ const ActiveWalkPage = () => {
       // Als er een foto is, voeg deze toe
       if (observationPhoto && observationId) {
         await handleFileUpload(observationId, observationPhoto);
+      } else {
+        // Als er geen foto is, ververs de observaties toch
+        const updatedObservations = await getWalkObservations(walkId);
+        console.log('Bijgewerkte observaties na toevoegen zonder foto:', updatedObservations);
+        setObservations(updatedObservations);
       }
       
       // Sluit de modal
