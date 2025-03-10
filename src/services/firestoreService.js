@@ -10,7 +10,8 @@ import {
   where, 
   orderBy, 
   limit, 
-  serverTimestamp 
+  serverTimestamp,
+  setDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
@@ -67,9 +68,24 @@ export const getUserSettings = async (userId) => {
  */
 export const updateUserSettings = async (userId, settings) => {
   try {
-    await updateDoc(doc(db, 'users', userId), {
-      settings: settings
-    });
+    // Controleer of het document bestaat
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (!userDoc.exists()) {
+      // Document bestaat niet, maak het aan
+      await setDoc(userDocRef, {
+        userId: userId,
+        settings: settings,
+        createdAt: serverTimestamp()
+      });
+      console.log('Gebruikersdocument aangemaakt voor:', userId);
+    } else {
+      // Document bestaat, update alleen de instellingen
+      await updateDoc(userDocRef, {
+        settings: settings
+      });
+    }
   } catch (error) {
     console.error('Fout bij het updaten van gebruikersinstellingen:', error);
     throw error;

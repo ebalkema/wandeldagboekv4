@@ -32,7 +32,7 @@ import WeatherDisplay from '../components/WeatherDisplay';
 import LazyVoiceButton from '../components/LazyVoiceButton';
 import ObservationItem from '../components/ObservationItem';
 import OfflineIndicator from '../components/OfflineIndicator';
-import { formatDuration } from '../utils/dateUtils';
+import { formatDuration, formatTime } from '../utils/dateUtils';
 import BirdObservations from '../components/BirdObservations';
 import { FaPlus } from 'react-icons/fa';
 
