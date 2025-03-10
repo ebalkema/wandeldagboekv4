@@ -11,9 +11,10 @@ import {
   orderBy, 
   limit, 
   serverTimestamp,
-  setDoc
+  setDoc,
+  writeBatch
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { auth } from '../firebase';
 
@@ -89,6 +90,128 @@ export const updateUserSettings = async (userId, settings) => {
     }
   } catch (error) {
     console.error('Fout bij het updaten van gebruikersinstellingen:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update gebruikersprofiel
+ * @param {string} userId - ID van de gebruiker
+ * @param {Object} profileData - Nieuwe profielgegevens
+ * @returns {Promise<void>}
+ */
+export const updateUserProfile = async (userId, profileData) => {
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    await updateDoc(userDocRef, profileData);
+  } catch (error) {
+    console.error('Fout bij het updaten van gebruikersprofiel:', error);
+    throw error;
+  }
+};
+
+/**
+ * Verwijder alle gebruikersgegevens
+ * @param {string} userId - ID van de gebruiker
+ * @returns {Promise<void>}
+ */
+export const deleteUserData = async (userId) => {
+  try {
+    const batch = writeBatch(db);
+    
+    // Verwijder gebruikersdocument
+    const userDocRef = doc(db, 'users', userId);
+    batch.delete(userDocRef);
+    
+    // Haal alle wandelingen op
+    const walksQuery = query(collection(db, 'walks'), where('userId', '==', userId));
+    const walksSnapshot = await getDocs(walksQuery);
+    
+    // Verwijder alle wandelingen en bijbehorende observaties
+    for (const walkDoc of walksSnapshot.docs) {
+      const walkId = walkDoc.id;
+      
+      // Haal alle observaties op
+      const observationsQuery = query(collection(db, 'observations'), where('walkId', '==', walkId));
+      const observationsSnapshot = await getDocs(observationsQuery);
+      
+      // Verwijder alle observaties
+      for (const obsDoc of observationsSnapshot.docs) {
+        // Verwijder eventuele foto's
+        if (obsDoc.data().photoURL) {
+          try {
+            const photoRef = ref(storage, obsDoc.data().photoURL);
+            await deleteObject(photoRef);
+          } catch (photoError) {
+            console.error('Fout bij het verwijderen van foto:', photoError);
+            // Ga door met verwijderen, ook als foto niet kan worden verwijderd
+          }
+        }
+        
+        batch.delete(obsDoc.ref);
+      }
+      
+      // Verwijder de wandeling
+      batch.delete(walkDoc.ref);
+    }
+    
+    // Voer alle verwijderingen uit
+    await batch.commit();
+    
+    console.log('Alle gebruikersgegevens verwijderd voor:', userId);
+  } catch (error) {
+    console.error('Fout bij het verwijderen van gebruikersgegevens:', error);
+    throw error;
+  }
+};
+
+/**
+ * Verwijder alle wandelingen en observaties van een gebruiker
+ * @param {string} userId - ID van de gebruiker
+ * @returns {Promise<void>}
+ */
+export const deleteUserWalks = async (userId) => {
+  try {
+    const batch = writeBatch(db);
+    
+    // Haal alle wandelingen op
+    const walksQuery = query(collection(db, 'walks'), where('userId', '==', userId));
+    const walksSnapshot = await getDocs(walksQuery);
+    
+    // Verwijder alle wandelingen en bijbehorende observaties
+    for (const walkDoc of walksSnapshot.docs) {
+      const walkId = walkDoc.id;
+      
+      // Haal alle observaties op
+      const observationsQuery = query(collection(db, 'observations'), where('walkId', '==', walkId));
+      const observationsSnapshot = await getDocs(observationsQuery);
+      
+      // Verwijder alle observaties
+      for (const obsDoc of observationsSnapshot.docs) {
+        // Verwijder eventuele foto's
+        if (obsDoc.data().photoURL) {
+          try {
+            const photoRef = ref(storage, obsDoc.data().photoURL);
+            await deleteObject(photoRef);
+          } catch (photoError) {
+            console.error('Fout bij het verwijderen van foto:', photoError);
+            // Ga door met verwijderen, ook als foto niet kan worden verwijderd
+          }
+        }
+        
+        batch.delete(obsDoc.ref);
+      }
+      
+      // Verwijder de wandeling
+      batch.delete(walkDoc.ref);
+    }
+    
+    // Voer alle verwijderingen uit
+    await batch.commit();
+    
+    console.log('Alle wandelingen en observaties verwijderd voor:', userId);
+  } catch (error) {
+    console.error('Fout bij het verwijderen van wandelingen en observaties:', error);
     throw error;
   }
 };

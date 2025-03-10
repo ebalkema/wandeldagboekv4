@@ -37,7 +37,7 @@ const Layout = () => {
       {/* Header altijd tonen */}
       <Header />
       
-      <main className={`flex-grow container mx-auto px-2 sm:px-4 py-2 sm:py-6 max-w-screen-xl ${isMobile ? 'pb-16' : 'pb-20'}`}>
+      <main className={`flex-grow w-full px-0 sm:container sm:mx-auto sm:px-4 py-2 sm:py-6 sm:max-w-screen-xl ${isMobile ? 'pb-16' : 'pb-20'}`}>
         <div className="w-full max-w-full overflow-hidden">
           {isPodcastPage ? <PodcastPage /> : <Outlet />}
         </div>

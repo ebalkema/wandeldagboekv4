@@ -7,7 +7,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   updateProfile as updateFirebaseProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  deleteUser
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -27,7 +28,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [userSettings, setUserSettings] = useState({
     birdRadius: 10, // Standaard zoekradius voor vogelwaarnemingen (in km)
-    // Andere gebruikersinstellingen kunnen hier worden toegevoegd
+    observationTags: ['Vogel', 'Plant', 'Dier', 'Insect', 'Landschap', 'Algemeen'] // Standaard observatie tags
   });
 
   // Registreer een nieuwe gebruiker met email en wachtwoord
@@ -46,13 +47,14 @@ export const AuthProvider = ({ children }) => {
         displayName,
         createdAt: serverTimestamp(),
         settings: {
-          birdRadius: 10 // Standaard zoekradius voor vogelwaarnemingen
+          birdRadius: 10, // Standaard zoekradius voor vogelwaarnemingen
+          observationTags: ['Vogel', 'Plant', 'Dier', 'Insect', 'Landschap', 'Algemeen'] // Standaard observatie tags
         }
       });
       
       return user;
     } catch (error) {
-      console.error('Fout bij registratie:', error);
+      console.error('Fout bij registreren:', error);
       throw error;
     }
   };
@@ -72,8 +74,8 @@ export const AuthProvider = ({ children }) => {
   const loginWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
       
       // Controleer of de gebruiker al bestaat in Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -83,9 +85,11 @@ export const AuthProvider = ({ children }) => {
         await setDoc(doc(db, 'users', user.uid), {
           email: user.email,
           displayName: user.displayName,
+          photoURL: user.photoURL,
           createdAt: serverTimestamp(),
           settings: {
-            birdRadius: 10 // Standaard zoekradius voor vogelwaarnemingen
+            birdRadius: 10, // Standaard zoekradius voor vogelwaarnemingen
+            observationTags: ['Vogel', 'Plant', 'Dier', 'Insect', 'Landschap', 'Algemeen'] // Standaard observatie tags
           }
         });
       }
@@ -107,7 +111,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Reset wachtwoord
+  // Stuur een wachtwoord reset email
   const resetPassword = async (email) => {
     try {
       await sendPasswordResetEmail(auth, email);
@@ -122,27 +126,45 @@ export const AuthProvider = ({ children }) => {
     if (!currentUser) return;
     
     try {
-      const updates = {};
-      
-      if (displayName) {
-        updates.displayName = displayName;
-        await updateFirebaseProfile(currentUser, { displayName });
-      }
-      
-      if (photoURL) {
-        updates.photoURL = photoURL;
-        await updateFirebaseProfile(currentUser, { photoURL });
-      }
+      // Update Firebase Auth profiel
+      await updateFirebaseProfile(currentUser, {
+        displayName: displayName || currentUser.displayName,
+        photoURL: photoURL || currentUser.photoURL
+      });
       
       // Update Firestore document
-      if (Object.keys(updates).length > 0) {
-        await setDoc(doc(db, 'users', currentUser.uid), updates, { merge: true });
-      }
+      await firestoreService.updateUserProfile(currentUser.uid, {
+        displayName: displayName || currentUser.displayName,
+        photoURL: photoURL || currentUser.photoURL
+      });
+      
+      // Ververs de currentUser
+      setCurrentUser({
+        ...currentUser,
+        displayName: displayName || currentUser.displayName,
+        photoURL: photoURL || currentUser.photoURL
+      });
       
       return true;
     } catch (error) {
       console.error('Fout bij het updaten van profiel:', error);
       return false;
+    }
+  };
+
+  // Verwijder gebruikersaccount
+  const deleteAccount = async () => {
+    if (!currentUser) {
+      throw new Error('Geen ingelogde gebruiker');
+    }
+    
+    try {
+      // Verwijder het Firebase Authentication account
+      await deleteUser(currentUser);
+      return true;
+    } catch (error) {
+      console.error('Fout bij het verwijderen van account:', error);
+      throw error;
     }
   };
 
@@ -209,7 +231,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updateProfile,
-    updateUserSettings
+    updateUserSettings,
+    deleteAccount
   };
 
   return (

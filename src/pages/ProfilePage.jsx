@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { getUserWalks, getGlobalStats } from '../services/firestoreService';
+import { getUserWalks, getGlobalStats, deleteUserData, deleteUserWalks } from '../services/firestoreService';
 import { hasPendingSyncItems, syncOfflineItems, getPendingSyncCount } from '../services/offlineService';
-import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart, FaBinoculars } from 'react-icons/fa';
+import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart, FaBinoculars, FaTrash, FaTags } from 'react-icons/fa';
 import { FaCheck, FaExclamationTriangle, FaUsers, FaRoute, FaEye, FaMedal } from 'react-icons/fa';
 import { FaFire } from 'react-icons/fa';
 
@@ -11,7 +11,7 @@ import { FaFire } from 'react-icons/fa';
  * Profielpagina voor gebruikersinstellingen en statistieken
  */
 const ProfilePage = () => {
-  const { currentUser, logout, userSettings, updateUserSettings } = useAuth();
+  const { currentUser, logout, userSettings, updateUserSettings, deleteAccount } = useAuth();
   const navigate = useNavigate();
   
   const [userStats, setUserStats] = useState({
@@ -33,6 +33,12 @@ const ProfilePage = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [showBirdSettings, setShowBirdSettings] = useState(false);
   const [birdRadius, setBirdRadius] = useState(userSettings?.birdRadius || 10);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showWalksDeleteConfirm, setShowWalksDeleteConfirm] = useState(false);
+  const [showTagsSettings, setShowTagsSettings] = useState(false);
+  const [observationTags, setObservationTags] = useState(userSettings?.observationTags || ['Vogel', 'Plant', 'Dier', 'Insect', 'Landschap', 'Algemeen']);
+  const [newTag, setNewTag] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   // Haal gebruikersstatistieken op
   useEffect(() => {
@@ -51,17 +57,10 @@ const ProfilePage = () => {
           return sum + distance;
         }, 0);
         
-        // Tel observaties
+        // Tel het aantal observaties
         const totalObservations = walks.reduce((sum, walk) => {
-          const observationCount = walk.observationCount || 0;
-          return sum + observationCount;
+          return sum + (walk.observationCount || 0);
         }, 0);
-        
-        console.log('Gebruikersstatistieken berekend:', {
-          totalWalks,
-          totalDistance,
-          totalObservations
-        });
         
         setUserStats({
           totalWalks,
@@ -76,10 +75,6 @@ const ProfilePage = () => {
     };
     
     fetchUserStats();
-    
-    // Controleer of er offline items zijn om te synchroniseren
-    setHasPendingItems(hasPendingSyncItems());
-    setPendingCount(getPendingSyncCount());
   }, [currentUser]);
 
   // Haal globale statistieken op
@@ -94,6 +89,12 @@ const ProfilePage = () => {
     };
     
     fetchGlobalStats();
+  }, []);
+
+  // Controleer op offline items die gesynchroniseerd moeten worden
+  useEffect(() => {
+    setHasPendingItems(hasPendingSyncItems());
+    setPendingCount(getPendingSyncCount());
   }, []);
 
   // Uitloggen
@@ -161,10 +162,89 @@ const ProfilePage = () => {
     }
   };
 
+  // Verwijder gebruikersaccount en alle gegevens
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setDeleting(true);
+      
+      // Verwijder alle gebruikersgegevens uit Firestore
+      await deleteUserData(currentUser.uid);
+      
+      // Verwijder het Firebase Authentication account
+      await deleteAccount();
+      
+      // Navigeer naar de login pagina
+      navigate('/login');
+    } catch (error) {
+      console.error('Fout bij het verwijderen van account:', error);
+      alert('Er is een fout opgetreden bij het verwijderen van je account. Probeer het later opnieuw.');
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  // Verwijder alleen wandelingen en observaties
+  const handleDeleteWalks = async () => {
+    if (!currentUser) return;
+    
+    try {
+      setDeleting(true);
+      
+      // Verwijder alle wandelingen en observaties
+      await deleteUserWalks(currentUser.uid);
+      
+      // Ververs de statistieken
+      setUserStats({
+        totalWalks: 0,
+        totalDistance: 0,
+        totalObservations: 0
+      });
+      
+      setDeleting(false);
+      setShowWalksDeleteConfirm(false);
+      
+      alert('Alle wandelingen en observaties zijn verwijderd.');
+    } catch (error) {
+      console.error('Fout bij het verwijderen van wandelingen:', error);
+      alert('Er is een fout opgetreden bij het verwijderen van je wandelingen. Probeer het later opnieuw.');
+      setDeleting(false);
+      setShowWalksDeleteConfirm(false);
+    }
+  };
+
+  // Beheer observatie tags
+  const handleAddTag = () => {
+    if (!newTag.trim()) return;
+    
+    // Voeg de nieuwe tag toe als deze nog niet bestaat
+    if (!observationTags.includes(newTag.trim())) {
+      setObservationTags([...observationTags, newTag.trim()]);
+    }
+    
+    setNewTag('');
+  };
+
+  const handleRemoveTag = (tag) => {
+    setObservationTags(observationTags.filter(t => t !== tag));
+  };
+
+  const handleSaveTagsSettings = async () => {
+    try {
+      await updateUserSettings({
+        ...userSettings,
+        observationTags
+      });
+      
+      setShowTagsSettings(false);
+    } catch (error) {
+      console.error('Fout bij het opslaan van observatie tags:', error);
+    }
+  };
+
   return (
     <div className="max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Profiel</h1>
-      
       {/* Gebruikersinfo */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex items-center mb-4">
@@ -199,10 +279,8 @@ const ProfilePage = () => {
           </div>
           
           <div className="bg-gray-50 p-3 rounded-lg text-center">
-            <p className="text-2xl font-bold text-green-600">
-              {(userStats.totalDistance / 1000).toFixed(1)}
-            </p>
-            <p className="text-sm text-gray-600">Kilometer</p>
+            <p className="text-2xl font-bold text-green-600">{formatDistance(userStats.totalDistance)}</p>
+            <p className="text-sm text-gray-600">Afstand</p>
           </div>
           
           <div className="bg-gray-50 p-3 rounded-lg text-center">
@@ -213,13 +291,11 @@ const ProfilePage = () => {
         
         {/* Vergelijking met andere gebruikers */}
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Jouw bijdrage</h3>
-        <div className="space-y-4 mb-4">
+        <div className="space-y-4 mb-6">
           <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm font-medium text-gray-700">Wandelingen</span>
-              <span className="text-sm font-medium text-gray-700">
-                {calculatePercentage(userStats.totalWalks, globalStats.totalWalks)}%
-              </span>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600">Wandelingen</span>
+              <span className="text-gray-800 font-medium">{calculatePercentage(userStats.totalWalks, globalStats.totalWalks)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div 
@@ -230,11 +306,9 @@ const ProfilePage = () => {
           </div>
           
           <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm font-medium text-gray-700">Afstand</span>
-              <span className="text-sm font-medium text-gray-700">
-                {calculatePercentage(userStats.totalDistance, globalStats.totalDistance)}%
-              </span>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600">Afstand</span>
+              <span className="text-gray-800 font-medium">{calculatePercentage(userStats.totalDistance, globalStats.totalDistance)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div 
@@ -245,11 +319,9 @@ const ProfilePage = () => {
           </div>
           
           <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm font-medium text-gray-700">Observaties</span>
-              <span className="text-sm font-medium text-gray-700">
-                {calculatePercentage(userStats.totalObservations, globalStats.totalObservations)}%
-              </span>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600">Observaties</span>
+              <span className="text-gray-800 font-medium">{calculatePercentage(userStats.totalObservations, globalStats.totalObservations)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div 
@@ -259,143 +331,17 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Globale statistieken */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">
-          Wandeldagboek Community
-        </h3>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="flex items-center p-3 bg-blue-50 rounded-lg">
-            <div className="bg-blue-100 p-2 rounded-full mr-3">
-              <FaUsers className="text-blue-600 text-xl" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-800">{globalStats.totalUsers}</p>
-              <p className="text-sm text-gray-600">Gebruikers</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-green-50 rounded-lg">
-            <div className="bg-green-100 p-2 rounded-full mr-3">
-              <FaRoute className="text-green-600 text-xl" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-800">{globalStats.totalWalks}</p>
-              <p className="text-sm text-gray-600">Wandelingen</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-yellow-50 rounded-lg">
-            <div className="bg-yellow-100 p-2 rounded-full mr-3">
-              <FaEye className="text-yellow-600 text-xl" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-800">{globalStats.totalObservations}</p>
-              <p className="text-sm text-gray-600">Observaties</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center p-3 bg-purple-50 rounded-lg">
-            <div className="bg-purple-100 p-2 rounded-full mr-3">
-              <FaMedal className="text-purple-600 text-xl" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-gray-800">
-                {globalStats.totalDistance ? (globalStats.totalDistance / 1000).toFixed(1) : '0'}
-              </p>
-              <p className="text-sm text-gray-600">Kilometer</p>
-            </div>
-          </div>
-        </div>
-        
-        <p className="text-sm text-gray-600 text-center">
-          Samen maken we een verschil voor natuurobservatie!
-        </p>
-      </div>
-      
-      {/* Vogelwaarnemingen instellingen */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-            <FaBinoculars className="text-primary-500 mr-2" />
-            Vogelwaarnemingen
-          </h3>
-          <button
-            onClick={() => setShowBirdSettings(!showBirdSettings)}
-            className="text-primary-600 hover:text-primary-800"
-          >
-            <FaCog />
-          </button>
-        </div>
-        
-        {showBirdSettings ? (
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="mb-4">
-              <label htmlFor="birdRadius" className="block text-sm font-medium text-gray-700 mb-1">
-                Zoekradius (km)
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="range"
-                  id="birdRadius"
-                  min="1"
-                  max="50"
-                  step="1"
-                  value={birdRadius}
-                  onChange={handleBirdRadiusChange}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="ml-2 text-gray-700 min-w-[2.5rem] text-center">{birdRadius}</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Stel in hoe ver (in kilometers) je wilt zoeken naar vogelwaarnemingen.
-              </p>
-            </div>
-            
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowBirdSettings(false)}
-                className="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors mr-2"
-              >
-                Annuleren
-              </button>
-              <button
-                onClick={handleSaveBirdSettings}
-                className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                Opslaan
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <p className="text-gray-600">
-              Je zoekt momenteel naar vogelwaarnemingen binnen <span className="font-semibold">{userSettings?.birdRadius || 10} km</span> van je locatie.
-            </p>
-            <p className="text-sm text-gray-500 mt-1">
-              Klik op het tandwiel-icoon om deze instelling aan te passen.
-            </p>
-          </div>
-        )}
-      </div>
-      
-      {/* Acties */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Acties</h3>
         
         {/* Synchronisatie */}
         <div className="mb-4">
           <button
             onClick={handleSync}
             disabled={syncing || !hasPendingItems}
-            className={`w-full flex items-center justify-center px-4 py-2 rounded-lg mb-2 ${
+            className={`w-full flex items-center justify-center px-4 py-2 rounded-lg transition-colors duration-200 ${
               hasPendingItems
-                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                : 'bg-gray-100 text-gray-500'
-            } transition-colors duration-200`}
+                ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                : 'bg-gray-100 text-gray-500 cursor-not-allowed'
+            }`}
           >
             <FaSync className={`mr-2 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Bezig met synchroniseren...' : (
@@ -423,6 +369,62 @@ const ProfilePage = () => {
                 )}
                 {syncMessage}
               </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Observatie tags instellingen */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowTagsSettings(!showTagsSettings)}
+            className="w-full flex items-center justify-center px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors duration-200"
+          >
+            <FaTags className="mr-2" />
+            Observatie tags beheren
+          </button>
+          
+          {showTagsSettings && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                Pas de tags aan die je kunt gebruiken bij het toevoegen van observaties.
+              </p>
+              
+              <div className="flex flex-wrap gap-2 mb-3">
+                {observationTags.map(tag => (
+                  <div key={tag} className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm flex items-center">
+                    <span>{tag}</span>
+                    <button 
+                      onClick={() => handleRemoveTag(tag)}
+                      className="ml-1 text-indigo-600 hover:text-indigo-800"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex mb-2">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="Nieuwe tag"
+                  className="flex-grow border-gray-300 rounded-l-lg text-sm"
+                />
+                <button
+                  onClick={handleAddTag}
+                  className="bg-indigo-600 text-white px-3 py-1 rounded-r-lg text-sm"
+                >
+                  Toevoegen
+                </button>
+              </div>
+              
+              <button
+                onClick={handleSaveTagsSettings}
+                className="mt-3 w-full bg-indigo-600 text-white py-1 px-3 rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm"
+              >
+                Opslaan
+              </button>
             </div>
           )}
         </div>
@@ -455,12 +457,60 @@ const ProfilePage = () => {
                 <span>{birdRadius} km</span>
                 <span>50 km</span>
               </div>
+              <p className="text-xs text-gray-600 mt-2 mb-3">
+                Je zoekt momenteel naar vogelwaarnemingen binnen <span className="font-semibold">{birdRadius} km</span> van je locatie.
+              </p>
               <button
                 onClick={handleSaveBirdSettings}
                 className="mt-3 w-full bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition-colors duration-200 text-sm"
               >
                 Opslaan
               </button>
+            </div>
+          )}
+        </div>
+        
+        {/* Verwijder wandelingen */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowWalksDeleteConfirm(true)}
+            className="w-full flex items-center justify-center px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors duration-200"
+          >
+            <FaTrash className="mr-2" />
+            Verwijder alle wandelingen
+          </button>
+          
+          {showWalksDeleteConfirm && (
+            <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-700 mb-3">
+                Weet je zeker dat je alle wandelingen en observaties wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setShowWalksDeleteConfirm(false)}
+                  className="flex-1 bg-gray-200 text-gray-700 py-1 px-3 rounded-md hover:bg-gray-300 transition-colors duration-200 text-sm"
+                  disabled={deleting}
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleDeleteWalks}
+                  className="flex-1 bg-red-600 text-white py-1 px-3 rounded-md hover:bg-red-700 transition-colors duration-200 text-sm flex items-center justify-center"
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Bezig...
+                    </>
+                  ) : (
+                    'Verwijderen'
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -477,11 +527,54 @@ const ProfilePage = () => {
         {/* Uitloggen */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors duration-200"
+          className="w-full flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg mb-4 transition-colors duration-200"
         >
           <FaSignOutAlt className="mr-2" />
           Uitloggen
         </button>
+        
+        {/* Verwijder account */}
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors duration-200"
+        >
+          <FaTrash className="mr-2" />
+          Verwijder account
+        </button>
+        
+        {showDeleteConfirm && (
+          <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm text-red-700 mb-3">
+              Weet je zeker dat je je account wilt verwijderen? Al je gegevens worden permanent verwijderd. Deze actie kan niet ongedaan worden gemaakt.
+            </p>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 bg-gray-200 text-gray-700 py-1 px-3 rounded-md hover:bg-gray-300 transition-colors duration-200 text-sm"
+                disabled={deleting}
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="flex-1 bg-red-600 text-white py-1 px-3 rounded-md hover:bg-red-700 transition-colors duration-200 text-sm flex items-center justify-center"
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Bezig...
+                  </>
+                ) : (
+                  'Verwijderen'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Instructies voor toevoegen aan beginscherm */}
@@ -524,6 +617,14 @@ const ProfilePage = () => {
       </div>
     </div>
   );
+};
+
+// Helper functie voor het formatteren van afstanden
+const formatDistance = (meters) => {
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+  return `${(meters / 1000).toFixed(1)} km`;
 };
 
 export default ProfilePage; 
