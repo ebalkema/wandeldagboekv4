@@ -474,13 +474,29 @@ const ActiveWalkPage = () => {
 
   // Sla een observatie op
   const saveObservation = async (text, category = 'algemeen') => {
-    if (!walkId || !currentUser || !currentLocation) {
-      console.error('Kan observatie niet opslaan: ontbrekende gegevens');
+    if (!walkId || !currentUser) {
+      console.error('Kan observatie niet opslaan: ontbrekende gegevens (walkId of currentUser)');
       return null;
     }
     
     try {
-      const locationData = { lat: currentLocation[0], lng: currentLocation[1] };
+      // Gebruik een fallback locatie als er geen huidige locatie is
+      let locationData;
+      if (!currentLocation) {
+        console.warn('Geen huidige locatie beschikbaar, gebruik fallback locatie voor observatie');
+        // Gebruik de startlocatie van de wandeling als fallback
+        if (walk && walk.startLocation) {
+          locationData = walk.startLocation;
+          console.log('Gebruik startlocatie van wandeling als fallback:', locationData);
+        } else {
+          // Als er geen startlocatie is, gebruik Amsterdam als fallback
+          locationData = { lat: 52.3676, lng: 4.9041 };
+          console.log('Gebruik Amsterdam als fallback locatie:', locationData);
+        }
+      } else {
+        locationData = { lat: currentLocation[0], lng: currentLocation[1] };
+      }
+      
       let observationId;
       
       if (isOffline) {
