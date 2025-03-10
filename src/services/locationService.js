@@ -76,6 +76,24 @@ export const checkLocationPermission = () => {
 };
 
 /**
+ * Detecteert of de gebruiker op een macOS-apparaat zit
+ * @returns {boolean} - Of de gebruiker op een macOS-apparaat zit
+ */
+export const isMacOS = () => {
+  return navigator.platform.includes('Mac') || 
+         navigator.userAgent.includes('Macintosh') || 
+         navigator.userAgent.includes('Mac OS X');
+};
+
+/**
+ * Detecteert of de gebruiker op een mobiel apparaat zit
+ * @returns {boolean} - Of de gebruiker op een mobiel apparaat zit
+ */
+export const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+/**
  * Haalt de huidige locatie op
  * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
  * @returns {Promise<{lat: number, lng: number, isDefault: boolean}>} - Huidige locatie
@@ -96,6 +114,18 @@ export const getCurrentLocation = (useFallback = true) => {
     // Log browser en platform informatie voor debugging
     console.log('Browser informatie:', navigator.userAgent);
     console.log('Platform:', navigator.platform);
+    const isMacOSDevice = isMacOS();
+    const isMobile = isMobileDevice();
+    console.log('Is macOS:', isMacOSDevice);
+    console.log('Is mobiel apparaat:', isMobile);
+    
+    // Als het een macOS-apparaat is en geen mobiel apparaat, gebruik direct de fallback
+    // Dit is omdat macOS vaak problemen heeft met CoreLocationProvider
+    if (isMacOSDevice && !isMobile && useFallback) {
+      console.info('macOS desktop gedetecteerd, gebruik direct fallback locatie om CoreLocation problemen te vermijden');
+      resolve({...DEFAULT_LOCATION, isDefault: true});
+      return;
+    }
     
     // Probeer eerst de locatietoestemming te controleren
     checkLocationPermission().then(hasPermission => {
@@ -228,6 +258,14 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
       if (errorCallback) errorCallback(error, 1);
       throw error;
     }
+  }
+  
+  // Als het een macOS-apparaat is en geen mobiel apparaat, gebruik direct de fallback
+  const isMacOSDevice = isMacOS();
+  const isMobile = isMobileDevice();
+  if (isMacOSDevice && !isMobile && useFallback) {
+    console.info('macOS desktop gedetecteerd, gebruik direct fallback locatie voor tracking om CoreLocation problemen te vermijden');
+    return useFallbackLocation('macOS desktop gedetecteerd');
   }
   
   // Controleer eerst of locatie beschikbaar is

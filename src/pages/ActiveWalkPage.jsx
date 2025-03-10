@@ -684,11 +684,22 @@ const ActiveWalkPage = () => {
       // Sla de observatie op
       const observationId = await saveObservation(observationText, observationCategory);
       
+      if (!observationId) {
+        console.error('Geen observatie ID ontvangen na opslaan');
+        setError('Kon observatie niet opslaan');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Observatie succesvol opgeslagen met ID:', observationId);
+      
       // Als er een foto is, voeg deze toe
       if (observationPhoto && observationId) {
+        console.log('Foto wordt toegevoegd aan observatie:', observationId);
         await handleFileUpload(observationId, observationPhoto);
       } else {
         // Als er geen foto is, ververs de observaties toch
+        console.log('Geen foto om toe te voegen, observaties worden ververst');
         const updatedObservations = await getWalkObservations(walkId);
         console.log('Bijgewerkte observaties na toevoegen zonder foto:', updatedObservations);
         setObservations(updatedObservations);
@@ -697,6 +708,9 @@ const ActiveWalkPage = () => {
       // Sluit de modal
       setShowObservationModal(false);
       setLoading(false);
+      
+      // Toon een bevestiging
+      alert('Observatie succesvol toegevoegd!');
     } catch (error) {
       console.error('Fout bij het toevoegen van observatie:', error);
       setError('Kon observatie niet toevoegen');
