@@ -1,6 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaLeaf, FaPodcast, FaExternalLinkAlt, FaPlus, FaStop, FaWalking, FaCamera } from 'react-icons/fa';
+import { FaLeaf, FaPodcast, FaExternalLinkAlt, FaPlus, FaStop, FaWalking, FaCamera, FaMicrophone } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { useState, useEffect } from 'react';
+import VoiceButton from './VoiceButton';
+import { useVoice } from '../context/VoiceContext';
 
 // Website URL
 const WEBSITE_URL = 'https://www.mennoenerwin.nl';
@@ -16,6 +19,18 @@ const Header = ({ onAddObservation }) => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const currentPath = location.pathname;
+  const { processCommand } = useVoice();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  
+  // Controleer schermgrootte en pas aan wanneer deze verandert
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Bepaal de titel op basis van het huidige pad
   const getTitle = () => {
@@ -57,6 +72,31 @@ const Header = ({ onAddObservation }) => {
       onAddObservation();
     }
   };
+
+  // Functie om spraakcommando's te verwerken
+  const handleVoiceCommand = (text) => {
+    const command = processCommand(text);
+    if (!command) return;
+
+    switch (command.type) {
+      case 'NEW_WALK':
+        navigate('/new-walk');
+        break;
+      case 'VIEW_WALKS':
+        navigate('/walks');
+        break;
+      case 'GO_DASHBOARD':
+        navigate('/');
+        break;
+      case 'NEW_OBSERVATION':
+        if (isActivePage && onAddObservation) {
+          onAddObservation();
+        }
+        break;
+      default:
+        console.log('Onbekend commando:', command);
+    }
+  };
   
   return (
     <header className="bg-primary-600 text-white shadow-md">
@@ -78,7 +118,17 @@ const Header = ({ onAddObservation }) => {
           </Link>
 
           {/* Actieknoppen voor specifieke pagina's */}
-          <div className="flex space-x-1 sm:space-x-2">
+          <div className="flex space-x-1 sm:space-x-2 items-center">
+            {/* Spraakopnameknop altijd zichtbaar */}
+            <VoiceButton 
+              onResult={handleVoiceCommand}
+              size={isMobile ? "xsmall" : "small"}
+              color="secondary"
+              label={isMobile ? "" : "Spraak"}
+              stopLabel={isMobile ? "" : "Stop"}
+              className="mr-1"
+            />
+
             {isActivePage ? (
               <>
                 {/* Knop voor observatie toevoegen */}
@@ -123,7 +173,7 @@ const Header = ({ onAddObservation }) => {
                   className="text-xs text-white/80 hover:text-white transition-colors duration-200 flex items-center"
                   aria-label="Bezoek Menno & Erwin website"
                 >
-                  <span className="hidden sm:inline">Bezoek www.mennoenerwin.nl</span>
+                  <span className="hidden sm:inline">mennoenerwin.nl</span>
                   <span className="sm:hidden">mennoenerwin.nl</span>
                   <FaExternalLinkAlt className="ml-1 h-3 w-3" />
                 </a>
@@ -133,33 +183,7 @@ const Header = ({ onAddObservation }) => {
         </div>
       </div>
       
-      {/* Podcast banner - alleen op grotere schermen */}
-      <div className="bg-secondary-600 text-white text-xs py-1 text-center hidden sm:block">
-        <a 
-          href={`${WEBSITE_URL}/afleveringen`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline flex items-center justify-center"
-        >
-          <FaPodcast className="mr-1" />
-          Ontdek de natuur met de Menno & Erwin podcast - Bekijk de nieuwste afleveringen
-          <FaExternalLinkAlt className="ml-1 h-3 w-3" />
-        </a>
-      </div>
-      
-      {/* Verkorte podcast banner - alleen op mobiel */}
-      <div className="bg-secondary-600 text-white text-xs py-1 text-center sm:hidden">
-        <a 
-          href={`${WEBSITE_URL}/afleveringen`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline flex items-center justify-center"
-        >
-          <FaPodcast className="mr-1" />
-          Menno & Erwin podcast
-          <FaExternalLinkAlt className="ml-1 h-3 w-3" />
-        </a>
-      </div>
+      {/* Podcast banner verwijderd */}
     </header>
   );
 };

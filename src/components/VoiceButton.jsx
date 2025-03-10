@@ -71,6 +71,7 @@ const VoiceButton = ({
 
   // Bepaal de grootte van de knop
   const sizeClasses = {
+    xsmall: 'w-8 h-8 text-xs',
     small: 'w-10 h-10 text-sm',
     medium: 'w-14 h-14 text-base',
     large: 'w-20 h-20 text-lg'
@@ -117,6 +118,9 @@ const VoiceButton = ({
     }
   };
 
+  // Bepaal of we alleen het icoon moeten tonen (voor xsmall)
+  const showIconOnly = size === 'xsmall' || (label === '' && stopLabel === '');
+
   return (
     <button
       type="button"
@@ -126,15 +130,23 @@ const VoiceButton = ({
       aria-label={isRecording ? stopLabel : label}
     >
       {isRecording ? (
-        <div className="flex flex-col items-center">
-          <FaStop className="h-6 w-6" />
-          <span className="text-xs mt-1">{stopLabel}</span>
-        </div>
+        showIconOnly ? (
+          <FaStop className={size === 'xsmall' ? 'h-4 w-4' : 'h-6 w-6'} />
+        ) : (
+          <div className="flex flex-col items-center">
+            <FaStop className="h-6 w-6" />
+            <span className="text-xs mt-1">{stopLabel}</span>
+          </div>
+        )
       ) : (
-        <div className="flex flex-col items-center">
-          <FaMicrophone className="h-6 w-6" />
-          <span className="text-xs mt-1">{label}</span>
-        </div>
+        showIconOnly ? (
+          <FaMicrophone className={size === 'xsmall' ? 'h-4 w-4' : 'h-6 w-6'} />
+        ) : (
+          <div className="flex flex-col items-center">
+            <FaMicrophone className="h-6 w-6" />
+            <span className="text-xs mt-1">{label}</span>
+          </div>
+        )
       )}
     </button>
   );
