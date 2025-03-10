@@ -110,32 +110,57 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
   consecutiveErrors = 0;
   lastSuccessfulLocationTime = 0;
   
+  // Functie om fallback locatie te gebruiken
+  const useFallbackLocation = (reason) => {
+    console.info(`Fallback locatie wordt gebruikt voor tracking. Reden: ${reason}`);
+    
+    // Informeer de gebruiker dat we een fallback locatie gebruiken
+    if (errorCallback) {
+      errorCallback(new Error(`Locatie is niet beschikbaar. Fallback locatie wordt gebruikt. Reden: ${reason}`), 1);
+    }
+    
+    // Simuleer locatie updates met kleine variaties rond de fallback locatie
+    const intervalId = setInterval(() => {
+      const randomLat = DEFAULT_LOCATION.lat + (Math.random() - 0.5) * 0.001; // ±~50m
+      const randomLng = DEFAULT_LOCATION.lng + (Math.random() - 0.5) * 0.001; // ±~50m
+      
+      callback({
+        lat: randomLat,
+        lng: randomLng,
+        accuracy: 50, // 50 meter nauwkeurigheid
+        timestamp: Date.now(),
+        isDefault: true
+      });
+    }, 5000); // Elke 5 seconden
+    
+    // Sla het interval ID op in een object dat we kunnen gebruiken om het later te stoppen
+    return { type: 'fallback', id: intervalId };
+  };
+  
   if (!navigator.geolocation) {
     console.warn('Geolocation wordt niet ondersteund door deze browser.');
     if (useFallback) {
-      console.info('Fallback locatie wordt gebruikt voor tracking.');
-      // Simuleer locatie updates met kleine variaties rond de fallback locatie
-      const intervalId = setInterval(() => {
-        const randomLat = DEFAULT_LOCATION.lat + (Math.random() - 0.5) * 0.001; // ±~50m
-        const randomLng = DEFAULT_LOCATION.lng + (Math.random() - 0.5) * 0.001; // ±~50m
-        
-        callback({
-          lat: randomLat,
-          lng: randomLng,
-          accuracy: 50, // 50 meter nauwkeurigheid
-          timestamp: Date.now(),
-          isDefault: true
-        });
-      }, 5000); // Elke 5 seconden
-      
-      // Sla het interval ID op in een object dat we kunnen gebruiken om het later te stoppen
-      return { type: 'fallback', id: intervalId };
+      return useFallbackLocation('Geolocation niet ondersteund');
     } else {
       const error = new Error('Geolocation wordt niet ondersteund door deze browser.');
-      if (errorCallback) errorCallback(error);
+      if (errorCallback) errorCallback(error, 1);
       throw error;
     }
   }
+  
+  // Controleer eerst of locatie beschikbaar is
+  checkLocationAvailability()
+    .then(available => {
+      if (!available && useFallback) {
+        watchInfo = useFallbackLocation('Locatietoestemming geweigerd of niet beschikbaar');
+      }
+    })
+    .catch(error => {
+      console.warn('Fout bij het controleren van locatiebeschikbaarheid:', error);
+      if (useFallback) {
+        watchInfo = useFallbackLocation('Fout bij het controleren van locatiebeschikbaarheid');
+      }
+    });
   
   // Maak een recovery timer die controleert of we nog steeds locaties ontvangen
   const recoveryTimerId = setInterval(() => {
@@ -152,6 +177,21 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
       
       // Start opnieuw
       watchInfo = startWatchPosition();
+      
+      // Als we nog steeds geen locatie krijgen na meerdere pogingen, gebruik fallback
+      if (consecutiveErrors > 5 && useFallback) {
+        // Stop de huidige tracking
+        if (watchInfo) {
+          if (watchInfo.type === 'geolocation') {
+            navigator.geolocation.clearWatch(watchInfo.id);
+          } else if (watchInfo.type === 'fallback') {
+            clearInterval(watchInfo.id);
+          }
+        }
+        
+        // Gebruik fallback
+        watchInfo = useFallbackLocation('Geen locatie updates ontvangen na meerdere pogingen');
+      }
     }
   }, 30000); // Controleer elke 30 seconden
   
@@ -167,37 +207,15 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
       errorCallback(new Error(errorMessage), consecutiveErrors);
     }
     
-    // Als de fout kCLErrorLocationUnknown is (vaak in iOS/Safari), wacht even en probeer opnieuw
-    if (error.code === ERROR_CODES.UNKNOWN_ERROR || error.message?.includes('kCLErrorLocationUnknown')) {
-      console.log('kCLErrorLocationUnknown gedetecteerd, wacht even en probeer opnieuw');
-      
-      // Wacht 5 seconden en probeer dan de laatste bekende locatie te gebruiken
-      setTimeout(() => {
-        getCurrentLocation(true).then(location => {
-          if (!location.isDefault) {
-            callback(location);
-          }
-        }).catch(err => console.error('Fout bij het ophalen van locatie na kCLErrorLocationUnknown:', err));
-      }, 5000);
-    }
-    
-    if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-      console.warn(`${MAX_CONSECUTIVE_ERRORS} opeenvolgende locatiefouten. Schakel over naar fallback.`);
-      if (useFallback) {
-        // Als er te veel fouten zijn opgetreden, schakel over naar fallback
-        console.info('Overschakelen naar fallback locatie voor tracking.');
-        
-        // Stop de huidige tracking
-        if (watchInfo) {
-          stopLocationTracking(watchInfo);
-        }
-        
-        // Stop de recovery timer
-        clearInterval(recoveryTimerId);
-        
-        // Start fallback tracking
-        return startLocationTracking(callback, errorCallback, true);
+    // Als er te veel opeenvolgende fouten zijn en fallback is toegestaan, gebruik fallback
+    if (consecutiveErrors > 3 && useFallback) {
+      // Stop de huidige tracking
+      if (watchInfo && watchInfo.type === 'geolocation') {
+        navigator.geolocation.clearWatch(watchInfo.id);
       }
+      
+      // Gebruik fallback
+      watchInfo = useFallbackLocation('Te veel locatiefouten');
     }
   };
   

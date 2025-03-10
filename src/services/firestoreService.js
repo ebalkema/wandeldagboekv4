@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
+import { auth } from '../firebase';
 
 /**
  * Service voor het werken met Firebase Firestore
@@ -301,6 +302,20 @@ export const getWalkObservations = async (walkId) => {
  * @returns {Promise<Object>} - Globale statistieken
  */
 export const getGlobalStats = async () => {
+  // Standaard fallback waarden
+  const fallbackStats = {
+    totalWalks: 6,
+    totalDistance: 100000, // 100 km
+    totalObservations: 24,
+    totalUsers: 1
+  };
+  
+  // Als de gebruiker niet is ingelogd, retourneer direct de fallback
+  if (!auth.currentUser) {
+    console.log('Geen ingelogde gebruiker, fallback statistieken worden gebruikt');
+    return fallbackStats;
+  }
+  
   try {
     // Probeer eerst de wandelingen op te halen
     let totalWalks = 0;
@@ -308,7 +323,10 @@ export const getGlobalStats = async () => {
     let walks = [];
     
     try {
-      const walksSnapshot = await getDocs(collection(db, 'walks'));
+      // Gebruik een limiet om de hoeveelheid opgehaalde data te beperken
+      const walksQuery = query(collection(db, 'walks'), limit(100));
+      const walksSnapshot = await getDocs(walksQuery);
+      
       walks = walksSnapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id
@@ -321,67 +339,67 @@ export const getGlobalStats = async () => {
         const distance = walk.distance !== undefined ? Number(walk.distance) : 0;
         return sum + distance;
       }, 0);
+      
+      console.log(`Succesvol ${totalWalks} wandelingen opgehaald voor statistieken`);
     } catch (walkError) {
       console.warn('Kon wandelingen niet ophalen voor statistieken:', walkError);
       // Gebruik fallback waarden
-      totalWalks = 6;
-      totalDistance = 100000; // 100 km
+      totalWalks = fallbackStats.totalWalks;
+      totalDistance = fallbackStats.totalDistance;
     }
     
     // Probeer gebruikers op te halen
     let totalUsers = 0;
     try {
-      const usersSnapshot = await getDocs(collection(db, 'users'));
+      // Gebruik een limiet om de hoeveelheid opgehaalde data te beperken
+      const usersQuery = query(collection(db, 'users'), limit(100));
+      const usersSnapshot = await getDocs(usersQuery);
       totalUsers = usersSnapshot.size;
+      
+      console.log(`Succesvol ${totalUsers} gebruikers opgehaald voor statistieken`);
     } catch (userError) {
       console.warn('Kon gebruikers niet ophalen voor statistieken:', userError);
       // Gebruik fallback waarde
-      totalUsers = 1;
+      totalUsers = fallbackStats.totalUsers;
     }
     
     // Probeer observaties op te halen
     let totalObservations = 0;
     try {
-      const observationsSnapshot = await getDocs(collection(db, 'observations'));
+      // Gebruik een limiet om de hoeveelheid opgehaalde data te beperken
+      const observationsQuery = query(collection(db, 'observations'), limit(100));
+      const observationsSnapshot = await getDocs(observationsQuery);
       totalObservations = observationsSnapshot.size;
+      
+      console.log(`Succesvol ${totalObservations} observaties opgehaald voor statistieken`);
     } catch (obsError) {
       console.warn('Kon observaties niet ophalen voor statistieken:', obsError);
       // Gebruik fallback waarde
-      totalObservations = 24;
+      totalObservations = fallbackStats.totalObservations;
+    }
+    
+    // Als alle waarden gelijk zijn aan de fallback, gebruik dan de volledige fallback
+    if (totalWalks === fallbackStats.totalWalks && 
+        totalDistance === fallbackStats.totalDistance && 
+        totalObservations === fallbackStats.totalObservations && 
+        totalUsers === fallbackStats.totalUsers) {
+      console.log('Alle statistieken gebruiken fallback waarden, volledige fallback wordt gebruikt');
+      return fallbackStats;
     }
     
     // Log de berekende statistieken
-    console.log('Globale statistieken berekend:', {
-      totalWalks,
-      totalDistance,
-      totalObservations,
-      totalUsers
-    });
-    
-    // Als er geen data is, gebruik een fallback met minimaal 1 gebruiker en wat statistieken
-    if (totalWalks === 0 && totalUsers === 0) {
-      return {
-        totalWalks: 6,
-        totalDistance: 100000, // 100 km
-        totalObservations: 24,
-        totalUsers: 1
-      };
-    }
-    
-    return {
+    const stats = {
       totalWalks,
       totalDistance,
       totalObservations,
       totalUsers
     };
+    
+    console.log('Globale statistieken berekend:', stats);
+    return stats;
   } catch (error) {
     console.error('Fout bij het ophalen van globale statistieken:', error);
     // Fallback statistieken als er een fout optreedt
-    return {
-      totalWalks: 6,
-      totalDistance: 100000, // 100 km
-      totalObservations: 24,
-      totalUsers: 1
-    };
+    return fallbackStats;
   }
 }; 

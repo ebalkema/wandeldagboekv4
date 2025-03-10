@@ -462,7 +462,15 @@ const ActiveWalkPage = () => {
           pendingSync: true
         };
         
-        setObservations(prev => [...prev, newObservation]);
+        // Voeg de nieuwe observatie toe aan de state, maar voorkom duplicaten
+        setObservations(prev => {
+          // Controleer of deze observatie al bestaat
+          const exists = prev.some(obs => obs.id === observationId);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, newObservation];
+        });
       } else {
         console.log('Online modus: observatie opslaan in Firestore');
         observationId = await addObservation(
@@ -474,19 +482,9 @@ const ActiveWalkPage = () => {
           currentWeather
         );
         
-        // Voeg de observatie toe aan de lokale state
-        const newObservation = {
-          id: observationId,
-          walkId,
-          userId: currentUser.uid,
-          text,
-          location: locationData,
-          category,
-          timestamp: new Date(),
-          weatherAtPoint: currentWeather
-        };
-        
-        setObservations(prev => [...prev, newObservation]);
+        // Haal alle observaties opnieuw op om zeker te zijn dat we de meest recente data hebben
+        const updatedObservations = await getWalkObservations(walkId);
+        setObservations(updatedObservations);
       }
       
       // Sla het laatste observatie ID op voor het toevoegen van foto's
@@ -747,17 +745,18 @@ const ActiveWalkPage = () => {
       )}
       
       {/* Beëindig wandeling knop */}
-      {walk?.endTime && (
-        <div className="fixed bottom-20 inset-x-0 p-4 bg-white border-t border-gray-200 flex justify-center z-20">
-          <button
-            onClick={handleEndWalk}
-            className="bg-red-600 text-white py-2 px-6 rounded-lg hover:bg-red-700 transition-colors"
-            disabled={loading}
-          >
-            {loading ? 'Bezig...' : 'Beëindig wandeling'}
-          </button>
-        </div>
-      )}
+      <div className="fixed bottom-20 inset-x-0 p-4 bg-white border-t border-gray-200 flex justify-center z-20">
+        <button
+          onClick={handleEndWalk}
+          className="bg-red-600 text-white py-3 px-8 rounded-lg hover:bg-red-700 transition-colors font-bold text-lg shadow-lg flex items-center"
+          disabled={loading}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {loading ? 'Bezig...' : 'Wandeling beëindigen'}
+        </button>
+      </div>
       
       {/* Spraakcommando knop */}
       <div className="fixed bottom-20 right-4 z-30">
