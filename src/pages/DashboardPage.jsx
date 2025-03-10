@@ -7,7 +7,6 @@ import { getCachedWeatherData } from '../services/weatherService';
 import { useVoice } from '../context/VoiceContext';
 import WalkCard from '../components/WalkCard';
 import VoiceButton from '../components/VoiceButton';
-import WeatherDisplay from '../components/WeatherDisplay';
 
 /**
  * Dashboard pagina
@@ -20,7 +19,6 @@ const DashboardPage = () => {
   const [walks, setWalks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [weather, setWeather] = useState(null);
   const [location, setLocation] = useState(null);
 
   // Haal wandelingen op
@@ -43,21 +41,18 @@ const DashboardPage = () => {
     fetchWalks();
   }, [currentUser]);
 
-  // Haal locatie en weer op
+  // Haal locatie op
   useEffect(() => {
-    const fetchLocationAndWeather = async () => {
+    const fetchLocation = async () => {
       try {
         const currentLocation = await getCurrentLocation();
         setLocation(currentLocation);
-        
-        const weatherData = await getCachedWeatherData(currentLocation.lat, currentLocation.lng);
-        setWeather(weatherData);
       } catch (error) {
-        console.error('Fout bij het ophalen van locatie of weer:', error);
+        console.error('Fout bij het ophalen van locatie:', error);
       }
     };
     
-    fetchLocationAndWeather();
+    fetchLocation();
   }, []);
 
   // Verwerk spraakcommando's
@@ -85,13 +80,7 @@ const DashboardPage = () => {
   const activeWalk = walks.find(walk => !walk.endTime);
 
   return (
-    <div>
-      {/* Header met weer */}
-      <div className="flex justify-between items-start mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        {weather && <WeatherDisplay weather={weather} />}
-      </div>
-
+    <div className="space-y-6">
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}

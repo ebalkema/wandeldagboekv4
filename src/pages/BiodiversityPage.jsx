@@ -107,45 +107,36 @@ const BiodiversityPage = () => {
           radius,
           options
         );
-        
         setSpecies(speciesData);
         
-        // Haal clusters op als er mapBounds zijn
-        if (mapBounds) {
-          const clusterData = await getObservationClusters(
-            mapBounds,
-            options
-          );
-          
-          setClusters(clusterData);
-        }
+        // Haal clusters op
+        const clustersData = await getObservationClusters(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          radius,
+          options
+        );
+        setClusters(clustersData);
       } catch (err) {
         console.error('Fout bij het ophalen van biodiversiteitsgegevens:', err);
-        setError(usingFallbackLocation ?
-          'Kon je locatie niet bepalen en er was een probleem bij het ophalen van biodiversiteitsgegevens.' :
-          'Kon geen biodiversiteitsgegevens ophalen. Probeer het later opnieuw.'
-        );
+        setError('Kon geen biodiversiteitsgegevens ophalen. Probeer het later opnieuw.');
       } finally {
         setLoading(false);
       }
     };
     
     fetchBiodiversityData();
-  }, [currentLocation, radius, dateRange, selectedSpeciesGroups, mapBounds, usingFallbackLocation]);
+  }, [currentLocation, radius, dateRange, selectedSpeciesGroups]);
   
   // Filter soorten op basis van zoekopdracht
-  const filteredSpecies = searchQuery 
-    ? species.filter(species => 
-        (species.vernacularName?.nl || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        species.scientificName.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSpecies = searchQuery
+    ? species.filter(s => 
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.scientificName.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : species;
   
-  // Sorteer soorten op aantal waarnemingen (meest voorkomend eerst)
-  const sortedSpecies = [...filteredSpecies].sort((a, b) => 
-    (b.observationCount || 0) - (a.observationCount || 0)
-  );
-  
+  // Bijwerken van kaartgrenzen
   const handleMapBoundsChange = (bounds) => {
     setMapBounds({
       north: bounds.getNorth(),
@@ -179,11 +170,6 @@ const BiodiversityPage = () => {
   
   return (
     <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-        <FaLeaf className="text-primary-500 mr-2" />
-        Biodiversiteit Verkenner
-      </h1>
-      
       {usingFallbackLocation && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
           <div className="flex">
@@ -321,21 +307,21 @@ const BiodiversityPage = () => {
       {/* Resultaten */}
       <div className="bg-white rounded-lg shadow-md p-4">
         <h2 className="text-lg font-semibold mb-3">
-          {loading ? 'Soorten laden...' : `${sortedSpecies.length} soorten gevonden`}
+          {loading ? 'Soorten laden...' : `${filteredSpecies.length} soorten gevonden`}
         </h2>
         
         {error && (
           <p className="text-red-500 mb-4">{error}</p>
         )}
         
-        {!loading && sortedSpecies.length === 0 ? (
+        {!loading && filteredSpecies.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
             Geen soorten gevonden voor de huidige filters.
             Probeer de zoekcriteria aan te passen.
           </p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {sortedSpecies.map(species => (
+            {filteredSpecies.map(species => (
               <li 
                 key={species.id} 
                 className="py-3 cursor-pointer hover:bg-gray-50"
@@ -343,7 +329,7 @@ const BiodiversityPage = () => {
               >
                 <div className="flex justify-between">
                   <div>
-                    <p className="font-medium">{species.vernacularName?.nl || species.scientificName}</p>
+                    <p className="font-medium">{species.name || species.scientificName}</p>
                     <p className="text-xs text-gray-500 italic">{species.scientificName}</p>
                     <p className="text-xs text-gray-500">
                       {species.speciesGroup || 'Onbekende groep'}
@@ -373,7 +359,7 @@ const BiodiversityPage = () => {
             <div className="p-4">
               <div className="flex justify-between items-start">
                 <h2 className="text-xl font-bold">
-                  {selectedSpecies.vernacularName?.nl || selectedSpecies.scientificName}
+                  {selectedSpecies.name || selectedSpecies.scientificName}
                 </h2>
                 <button 
                   className="text-gray-500 hover:text-gray-700"

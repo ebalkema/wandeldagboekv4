@@ -48,12 +48,10 @@ const WalksPage = () => {
         setError('Kon wandelingen niet laden. Probeer het later opnieuw.');
         
         // Probeer alleen offline wandelingen te laden als er een fout is
-        try {
-          const offlineWalks = getOfflineWalks();
+        const offlineWalks = getOfflineWalks();
+        if (offlineWalks.length > 0) {
           setWalks(offlineWalks);
-          console.log('Alleen offline wandelingen geladen:', offlineWalks.length);
-        } catch (offlineError) {
-          console.error('Fout bij het ophalen van offline wandelingen:', offlineError);
+          console.log('Offline wandelingen geladen:', offlineWalks.length);
         }
       } finally {
         setLoading(false);
@@ -63,49 +61,25 @@ const WalksPage = () => {
     fetchWalks();
   }, [currentUser]);
 
-  // Filter de wandelingen
-  const filteredWalks = walks.filter(walk => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return !walk.endTime;
-    if (filter === 'completed') return !!walk.endTime;
-    return true;
-  });
+  // Functie om timestamp te krijgen voor sortering
+  const getTimestamp = (walk) => {
+    if (walk.endTime) return walk.endTime;
+    if (walk.startTime) return walk.startTime;
+    return 0;
+  };
 
-  // Sorteer de wandelingen op startdatum (nieuwste eerst)
-  const sortedWalks = [...filteredWalks].sort((a, b) => {
-    // Haal timestamps op, rekening houdend met verschillende formaten
-    const getTimestamp = (walk) => {
-      if (!walk.startTime) return 0;
-      
-      // Voor Firestore timestamp
-      if (walk.startTime.seconds) {
-        return walk.startTime.seconds;
-      }
-      
-      // Voor ISO string (offline modus)
-      if (typeof walk.startTime === 'string') {
-        return new Date(walk.startTime).getTime() / 1000;
-      }
-      
-      return 0;
-    };
-    
-    return getTimestamp(b) - getTimestamp(a);
-  });
+  // Filter en sorteer wandelingen
+  const filteredWalks = walks
+    .filter(walk => {
+      if (filter === 'all') return true;
+      if (filter === 'active') return !walk.endTime;
+      if (filter === 'completed') return !!walk.endTime;
+      return true;
+    })
+    .sort((a, b) => getTimestamp(b) - getTimestamp(a));
 
   return (
-    <div>
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Mijn wandelingen</h1>
-        
-        <Link
-          to="/new-walk"
-          className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors duration-200"
-        >
-          Nieuwe wandeling
-        </Link>
-      </div>
-
+    <div className="space-y-6">
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
@@ -149,67 +123,35 @@ const WalksPage = () => {
       {/* Wandelingen lijst */}
       {loading ? (
         <div className="text-center py-8">
-          <svg className="animate-spin h-8 w-8 text-primary-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
           <p className="mt-2 text-gray-600">Wandelingen laden...</p>
         </div>
-      ) : sortedWalks.length === 0 ? (
+      ) : filteredWalks.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <FaLeaf className="h-12 w-12 text-primary-300 mx-auto mb-4" />
+          <FaLeaf className="text-primary-500 text-4xl mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">Geen wandelingen gevonden</h3>
           <p className="text-gray-600 mb-4">
-            {filter === 'all'
-              ? 'Je hebt nog geen wandelingen. Start je eerste wandeling!'
-              : filter === 'active'
-              ? 'Je hebt geen actieve wandelingen.'
-              : 'Je hebt nog geen voltooide wandelingen.'}
+            {filter === 'all' 
+              ? 'Je hebt nog geen wandelingen. Start je eerste wandeling!' 
+              : filter === 'active' 
+                ? 'Je hebt geen actieve wandelingen.' 
+                : 'Je hebt nog geen voltooide wandelingen.'}
           </p>
-          
-          {filter !== 'all' && (
-            <button
-              onClick={() => setFilter('all')}
-              className="text-primary-600 hover:underline"
-            >
-              Bekijk alle wandelingen
-            </button>
-          )}
-          
-          <div className="mt-6 text-xs text-gray-500">
-            <p>
-              Een podcast-project van{' '}
-              <a 
-                href="https://www.mennoenerwin.nl" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
-              >
-                Menno & Erwin
-              </a>
-            </p>
-          </div>
+          <Link
+            to="/new-walk"
+            className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors duration-200 inline-flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Start een nieuwe wandeling
+          </Link>
         </div>
       ) : (
-        <div>
-          <div className="space-y-4 mb-8">
-            {sortedWalks.map(walk => (
-              <WalkCard key={walk.id} walk={walk} />
-            ))}
-          </div>
-          
-          <div className="text-center text-xs text-gray-500 pb-4">
-            <p>
-              Een podcast-project van{' '}
-              <a 
-                href="https://www.mennoenerwin.nl" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
-              >
-                Menno & Erwin
-              </a>
-            </p>
-          </div>
+        <div className="space-y-4">
+          {filteredWalks.map(walk => (
+            <WalkCard key={walk.id} walk={walk} />
+          ))}
         </div>
       )}
     </div>

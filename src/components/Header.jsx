@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaLeaf, FaPodcast, FaStop, FaWalking, FaCamera } from 'react-icons/fa';
+import { FaLeaf, FaPodcast, FaStop, FaWalking, FaCamera, FaHome, FaRoute, FaBinoculars, FaUser } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import VoiceButton from './VoiceButton';
@@ -39,6 +39,7 @@ const Header = ({ onAddObservation }) => {
     if (currentPath === '/profile') return 'Profiel';
     if (currentPath === '/podcast') return 'Menno & Erwin Podcast';
     if (currentPath === '/biodiversity') return 'Biodiversiteit';
+    if (currentPath === '/birding') return 'Vogelwaarnemingen';
     if (currentPath === '/settings') return 'Instellingen';
     return 'Dashboard';
   };
@@ -65,69 +66,49 @@ const Header = ({ onAddObservation }) => {
   
   // Functie om een observatie toe te voegen
   const handleAddObservation = () => {
-    if (onAddObservation && typeof onAddObservation === 'function') {
+    if (onAddObservation) {
       onAddObservation();
     }
   };
 
   // Functie om spraakcommando's te verwerken
-  const handleVoiceCommand = (text) => {
-    const command = processCommand(text);
-    if (!command) return;
-
-    switch (command.type) {
-      case 'NEW_WALK':
-        navigate('/new-walk');
-        break;
-      case 'VIEW_WALKS':
-        navigate('/walks');
-        break;
-      case 'GO_DASHBOARD':
-        navigate('/');
-        break;
-      case 'NEW_OBSERVATION':
-        if (isActivePage && onAddObservation) {
-          onAddObservation();
-        }
-        break;
-      default:
-        console.log('Onbekend commando:', command);
+  const handleVoiceCommand = (command) => {
+    if (processCommand) {
+      processCommand(command);
     }
   };
   
   // Gemeenschappelijke stijl voor actieknoppen
-  const buttonStyle = "px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition-colors duration-200 flex items-center";
+  const buttonStyle = "flex items-center justify-center px-2 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors";
   
   return (
     <header className="bg-primary-600 text-white shadow-md">
-      <div className="container mx-auto px-2 py-2 sm:px-4 sm:py-3">
+      <div className="container mx-auto px-2 py-2">
         <div className="flex justify-between items-center">
-          {/* Logo, app naam en pagina titel */}
+          {/* Logo en app naam */}
           <Link to="/" className="flex items-center">
-            {isPodcastPage ? (
-              <FaPodcast className="h-5 w-5 mr-1.5 flex-shrink-0" />
-            ) : (
-              <FaLeaf className="h-5 w-5 mr-1.5 flex-shrink-0" />
-            )}
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold">{APP_NAME}</span>
-              <span className="text-base sm:text-lg font-bold truncate">{getTitle()}</span>
-            </div>
+            <FaLeaf className="h-5 w-5 mr-1.5 flex-shrink-0" />
+            <span className="text-sm font-semibold">{APP_NAME}</span>
           </Link>
 
+          {/* Titel in het midden */}
+          <div className="text-center">
+            <span className="text-base font-bold">{getTitle()}</span>
+          </div>
+
           {/* Actieknoppen voor specifieke pagina's */}
-          <div className="flex space-x-1 sm:space-x-2 items-center">
+          <div className="flex space-x-1 items-center">
             {/* Spraakopnameknop altijd zichtbaar */}
             <VoiceButton 
               onResult={handleVoiceCommand}
-              size={isMobile ? "xsmall" : "small"}
+              size="xsmall"
               color="secondary"
-              label={isMobile ? "" : "Spraak"}
-              stopLabel={isMobile ? "" : "Stop"}
+              label=""
+              stopLabel=""
               className="mr-1"
             />
 
-            {isActivePage ? (
+            {isActivePage && (
               <>
                 {/* Knop voor observatie toevoegen */}
                 <button
@@ -148,20 +129,6 @@ const Header = ({ onAddObservation }) => {
                   <FaStop className="mr-1" />
                   <span className="hidden sm:inline">Beëindigen</span>
                 </Link>
-              </>
-            ) : (
-              <>
-                {/* Knop voor wandeling starten */}
-                {!isPodcastPage && currentUser && (
-                  <button
-                    onClick={handleStartWalk}
-                    className={`${buttonStyle} bg-primary-700 hover:bg-primary-800`}
-                    aria-label="Wandeling starten"
-                  >
-                    <FaWalking className="mr-1" />
-                    <span className="hidden sm:inline">Wandelen</span>
-                  </button>
-                )}
               </>
             )}
           </div>

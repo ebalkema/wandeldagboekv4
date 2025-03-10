@@ -212,11 +212,6 @@ const BirdingPage = () => {
   
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-        <FaBinoculars className="text-primary-600 mr-2" />
-        Vogelwaarnemingen
-      </h1>
-      
       {/* Zoek- en filterbalk */}
       <div className="bg-white rounded-lg shadow-md p-4 mb-4">
         <div className="flex flex-col md:flex-row gap-4">
