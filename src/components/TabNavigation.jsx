@@ -47,53 +47,6 @@ const TabNavigation = () => {
     navigate('/new-walk');
   };
   
-  // Verberg de navigatie op actieve wandelingspagina's
-  if (isActivePage) {
-    return (
-      <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-10">
-        <div className="grid grid-cols-3 h-16">
-          <NavLink
-            to="/"
-            className="flex flex-col items-center justify-center text-gray-500 hover:text-gray-700"
-          >
-            <FaHome className="text-xl mb-1" />
-            <span className="text-xs">Home</span>
-          </NavLink>
-          
-          <div className="flex items-center justify-center">
-            <Link
-              to={`/walk/${getWalkId()}`}
-              className="bg-red-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transform -translate-y-5 hover:bg-red-700 transition-colors"
-            >
-              <FaStop className="text-xl" />
-            </Link>
-          </div>
-          
-          <NavLink
-            to="/profile"
-            className={({ isActive }) => `
-              flex flex-col items-center justify-center
-              ${isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'}
-            `}
-          >
-            <FaUser className="text-xl mb-1" />
-            <span className="text-xs">Profiel</span>
-          </NavLink>
-        </div>
-      </div>
-    );
-  }
-  
-  // Bepaal welk tabblad actief is
-  const isActive = (path) => {
-    if (path === '/' && currentPath === '/') return true;
-    if (path === '/walks' && currentPath === '/walks') return true;
-    if (path === '/profile' && currentPath === '/profile') return true;
-    if (path === '/podcast' && currentPath === '/podcast') return true;
-    if (path === '/biodiversity' && currentPath === '/biodiversity') return true;
-    return false;
-  };
-
   // Aangepaste NavLink component met responsieve labels
   const ResponsiveNavLink = ({ to, icon, label }) => (
     <NavLink
@@ -108,6 +61,7 @@ const TabNavigation = () => {
     </NavLink>
   );
   
+  // Gebruik dezelfde navigatie voor alle pagina's, inclusief actieve wandelingen
   return (
     <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-10">
       <div className="flex justify-between h-16 px-1">

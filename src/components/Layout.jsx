@@ -30,8 +30,8 @@ const Layout = () => {
   
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Toon de Header niet op de actieve wandelingspagina */}
-      {!isActivePage && <Header />}
+      {/* Header altijd tonen */}
+      <Header />
       
       <main className={`flex-grow container mx-auto px-2 sm:px-4 py-2 sm:py-6 max-w-screen-xl ${isMobile ? 'pb-16' : 'pb-20'}`}>
         <div className="w-full max-w-full overflow-hidden">

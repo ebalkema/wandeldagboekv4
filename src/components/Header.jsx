@@ -98,6 +98,9 @@ const Header = ({ onAddObservation }) => {
     }
   };
   
+  // Gemeenschappelijke stijl voor actieknoppen
+  const buttonStyle = "px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition-colors duration-200 flex items-center";
+  
   return (
     <header className="bg-primary-600 text-white shadow-md">
       {/* App naam altijd bovenaan */}
@@ -134,7 +137,7 @@ const Header = ({ onAddObservation }) => {
                 {/* Knop voor observatie toevoegen */}
                 <button
                   onClick={handleAddObservation}
-                  className="bg-secondary-600 hover:bg-secondary-700 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition-colors duration-200 flex items-center"
+                  className={`${buttonStyle} bg-secondary-600 hover:bg-secondary-700`}
                   aria-label="Observatie toevoegen"
                 >
                   <FaCamera className="mr-1" />
@@ -144,7 +147,7 @@ const Header = ({ onAddObservation }) => {
                 {/* Knop voor wandeling beëindigen */}
                 <Link
                   to={`/walk/${getWalkId()}`}
-                  className="bg-red-600 hover:bg-red-700 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition-colors duration-200 flex items-center"
+                  className={`${buttonStyle} bg-red-600 hover:bg-red-700`}
                   aria-label="Wandeling beëindigen"
                 >
                   <FaStop className="mr-1" />
@@ -157,7 +160,7 @@ const Header = ({ onAddObservation }) => {
                 {!isPodcastPage && currentUser && (
                   <button
                     onClick={handleStartWalk}
-                    className="bg-primary-700 hover:bg-primary-800 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm transition-colors duration-200 flex items-center mr-1 sm:mr-2"
+                    className={`${buttonStyle} bg-primary-700 hover:bg-primary-800 mr-1 sm:mr-2`}
                     aria-label="Wandeling starten"
                   >
                     <FaWalking className="mr-1" />
@@ -182,8 +185,6 @@ const Header = ({ onAddObservation }) => {
           </div>
         </div>
       </div>
-      
-      {/* Podcast banner verwijderd */}
     </header>
   );
 };
