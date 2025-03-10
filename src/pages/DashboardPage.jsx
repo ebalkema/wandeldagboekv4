@@ -181,15 +181,6 @@ const DashboardPage = () => {
           </div>
         )}
       </div>
-
-      {/* Spraakcommando knop */}
-      <div className="fixed bottom-20 right-4 z-30">
-        <VoiceButton 
-          onResult={handleVoiceCommand}
-          label="Spraakcommando"
-          listeningLabel="Luisteren..."
-        />
-      </div>
     </div>
   );
 };

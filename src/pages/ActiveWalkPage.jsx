@@ -796,15 +796,6 @@ const ActiveWalkPage = () => {
         </button>
       </div>
       
-      {/* Spraakcommando knop */}
-      <div className="fixed bottom-20 right-4 z-30">
-        <LazyVoiceButton 
-          onResult={handleVoiceCommand}
-          label="Observatie"
-          size="lg"
-        />
-      </div>
-      
       {/* Offline indicator */}
       {isOffline && <OfflineIndicator />}
     </div>

@@ -1,12 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaLeaf, FaPodcast, FaExternalLinkAlt, FaPlus, FaStop, FaWalking, FaCamera, FaMicrophone } from 'react-icons/fa';
+import { FaLeaf, FaPodcast, FaStop, FaWalking, FaCamera } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useState, useEffect } from 'react';
 import VoiceButton from './VoiceButton';
 import { useVoice } from '../context/VoiceContext';
-
-// Website URL
-const WEBSITE_URL = 'https://www.mennoenerwin.nl';
 
 // App naam
 const APP_NAME = 'Wandeldagboek';
@@ -160,26 +157,13 @@ const Header = ({ onAddObservation }) => {
                 {!isPodcastPage && currentUser && (
                   <button
                     onClick={handleStartWalk}
-                    className={`${buttonStyle} bg-primary-700 hover:bg-primary-800 mr-1 sm:mr-2`}
+                    className={`${buttonStyle} bg-primary-700 hover:bg-primary-800`}
                     aria-label="Wandeling starten"
                   >
                     <FaWalking className="mr-1" />
                     <span className="hidden sm:inline">Wandelen</span>
                   </button>
                 )}
-                
-                {/* Link naar website */}
-                <a
-                  href={WEBSITE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-white/80 hover:text-white transition-colors duration-200 flex items-center"
-                  aria-label="Bezoek Menno & Erwin website"
-                >
-                  <span className="hidden sm:inline">mennoenerwin.nl</span>
-                  <span className="sm:hidden">mennoenerwin.nl</span>
-                  <FaExternalLinkAlt className="ml-1 h-3 w-3" />
-                </a>
               </>
             )}
           </div>

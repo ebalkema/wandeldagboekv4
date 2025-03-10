@@ -11,6 +11,9 @@ import { FaStop } from 'react-icons/fa';
 import { NavLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
+// Website URL voor externe links
+const WEBSITE_URL = 'https://www.mennoenerwin.nl';
+
 /**
  * Component voor tabblad-navigatie onderaan het scherm
  */
@@ -61,6 +64,19 @@ const TabNavigation = () => {
     </NavLink>
   );
   
+  // Externe link component
+  const ExternalNavLink = ({ href, icon, label }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex flex-col items-center justify-center px-1 text-gray-500 hover:text-gray-700"
+    >
+      {icon}
+      {!isMobile && <span className="text-xs mt-1">{label}</span>}
+    </a>
+  );
+  
   // Gebruik dezelfde navigatie voor alle pagina's, inclusief actieve wandelingen
   return (
     <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-10">
@@ -69,6 +85,12 @@ const TabNavigation = () => {
           to="/" 
           icon={<FaHome className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />} 
           label="Home" 
+        />
+        
+        <ExternalNavLink 
+          href={`${WEBSITE_URL}/afleveringen`}
+          icon={<FaPodcast className={`${isMobile ? 'text-2xl' : 'text-xl'}`} />}
+          label="Podcast"
         />
         
         <ResponsiveNavLink 
