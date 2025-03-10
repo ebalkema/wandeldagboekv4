@@ -256,4 +256,46 @@ export const getWalkObservations = async (walkId) => {
     console.error('Fout bij het ophalen van observaties:', error);
     throw error;
   }
+};
+
+/**
+ * Haalt globale statistieken op van alle gebruikers
+ * @returns {Promise<Object>} - Globale statistieken
+ */
+export const getGlobalStats = async () => {
+  try {
+    // Haal alle wandelingen op
+    const walksSnapshot = await getDocs(collection(db, 'walks'));
+    const walks = walksSnapshot.docs.map(doc => doc.data());
+    
+    // Bereken statistieken
+    const totalWalks = walksSnapshot.size;
+    const totalDistance = walks.reduce((sum, walk) => sum + (walk.distance || 0), 0);
+    const totalObservations = walks.reduce((sum, walk) => sum + (walk.observationCount || 0), 0);
+    
+    // Haal aantal gebruikers op
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const totalUsers = usersSnapshot.size;
+    
+    // Haal aantal observaties op
+    const observationsSnapshot = await getDocs(collection(db, 'observations'));
+    const observationsCount = observationsSnapshot.size;
+    
+    return {
+      totalWalks,
+      totalDistance,
+      totalObservations: observationsCount || totalObservations,
+      totalUsers
+    };
+  } catch (error) {
+    console.error('Fout bij het ophalen van globale statistieken:', error);
+    
+    // Fallback statistieken
+    return {
+      totalWalks: 0,
+      totalDistance: 0,
+      totalObservations: 0,
+      totalUsers: 0
+    };
+  }
 }; 

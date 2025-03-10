@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { getUserWalks } from '../services/firestoreService';
+import { getUserWalks, getGlobalStats } from '../services/firestoreService';
 import { hasPendingSyncItems, syncOfflineItems, getPendingSyncCount } from '../services/offlineService';
 import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart } from 'react-icons/fa';
-import { FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCheck, FaExclamationTriangle, FaUsers, FaRoute, FaEye, FaMedal } from 'react-icons/fa';
 import { FaFire } from 'react-icons/fa';
 
 /**
@@ -18,6 +18,12 @@ const ProfilePage = () => {
     totalWalks: 0,
     totalDistance: 0,
     totalObservations: 0
+  });
+  const [globalStats, setGlobalStats] = useState({
+    totalWalks: 0,
+    totalDistance: 0,
+    totalObservations: 0,
+    totalUsers: 0
   });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -57,6 +63,20 @@ const ProfilePage = () => {
     setHasPendingItems(hasPendingSyncItems());
     setPendingCount(getPendingSyncCount());
   }, [currentUser]);
+
+  // Haal globale statistieken op
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      try {
+        const stats = await getGlobalStats();
+        setGlobalStats(stats);
+      } catch (error) {
+        console.error('Fout bij het ophalen van globale statistieken:', error);
+      }
+    };
+    
+    fetchGlobalStats();
+  }, []);
 
   // Uitloggen
   const handleLogout = async () => {
@@ -99,6 +119,12 @@ const ProfilePage = () => {
     }
   };
 
+  // Bereken gebruikerspercentage ten opzichte van globale statistieken
+  const calculatePercentage = (userValue, globalValue) => {
+    if (!globalValue) return 0;
+    return Math.min(100, Math.round((userValue / globalValue) * 100));
+  };
+
   return (
     <div className="max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Profiel</h1>
@@ -128,8 +154,9 @@ const ProfilePage = () => {
           </div>
         </div>
         
-        {/* Statistieken */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        {/* Persoonlijke Statistieken */}
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Jouw statistieken</h3>
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-gray-50 p-3 rounded-lg text-center">
             <p className="text-2xl font-bold text-blue-600">{userStats.totalWalks}</p>
             <p className="text-sm text-gray-600">Wandelingen</p>
@@ -147,6 +174,110 @@ const ProfilePage = () => {
             <p className="text-sm text-gray-600">Observaties</p>
           </div>
         </div>
+        
+        {/* Vergelijking met andere gebruikers */}
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">Jouw bijdrage</h3>
+        <div className="space-y-4 mb-4">
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium text-gray-700">Wandelingen</span>
+              <span className="text-sm font-medium text-gray-700">
+                {calculatePercentage(userStats.totalWalks, globalStats.totalWalks)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full" 
+                style={{ width: `${calculatePercentage(userStats.totalWalks, globalStats.totalWalks)}%` }}
+              ></div>
+            </div>
+          </div>
+          
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium text-gray-700">Afstand</span>
+              <span className="text-sm font-medium text-gray-700">
+                {calculatePercentage(userStats.totalDistance, globalStats.totalDistance)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-green-600 h-2.5 rounded-full" 
+                style={{ width: `${calculatePercentage(userStats.totalDistance, globalStats.totalDistance)}%` }}
+              ></div>
+            </div>
+          </div>
+          
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium text-gray-700">Observaties</span>
+              <span className="text-sm font-medium text-gray-700">
+                {calculatePercentage(userStats.totalObservations, globalStats.totalObservations)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-yellow-600 h-2.5 rounded-full" 
+                style={{ width: `${calculatePercentage(userStats.totalObservations, globalStats.totalObservations)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Globale statistieken */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+          Wandeldagboek Community
+        </h3>
+        
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+            <div className="bg-blue-100 p-2 rounded-full mr-3">
+              <FaUsers className="text-blue-600 text-xl" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-800">{globalStats.totalUsers}</p>
+              <p className="text-sm text-gray-600">Gebruikers</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-green-50 rounded-lg">
+            <div className="bg-green-100 p-2 rounded-full mr-3">
+              <FaRoute className="text-green-600 text-xl" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-800">{globalStats.totalWalks}</p>
+              <p className="text-sm text-gray-600">Wandelingen</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-yellow-50 rounded-lg">
+            <div className="bg-yellow-100 p-2 rounded-full mr-3">
+              <FaEye className="text-yellow-600 text-xl" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-800">{globalStats.totalObservations}</p>
+              <p className="text-sm text-gray-600">Observaties</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center p-3 bg-purple-50 rounded-lg">
+            <div className="bg-purple-100 p-2 rounded-full mr-3">
+              <FaMedal className="text-purple-600 text-xl" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-gray-800">
+                {(globalStats.totalDistance / 1000).toFixed(0)}
+              </p>
+              <p className="text-sm text-gray-600">Kilometer</p>
+            </div>
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-600 text-center">
+          Samen maken we een verschil voor natuurobservatie!
+        </p>
       </div>
       
       {/* Acties */}
