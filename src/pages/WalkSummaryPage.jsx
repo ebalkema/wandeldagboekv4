@@ -186,13 +186,33 @@ const WalkSummaryPage = () => {
       
       {/* Kaart sectie */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-        <div className="h-64">
+        <div className="h-64 sm:h-80">
           <MapComponent 
             pathPoints={pathPoints}
             observations={observations}
             height="100%"
             showCurrentLocation={false}
+            showTimestamps={true}
           />
+        </div>
+        <div className="p-4 border-t border-gray-100">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">Routedetails</h3>
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+              Start
+            </span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+              <span className="w-2 h-2 bg-red-500 rounded-full mr-1"></span>
+              Einde
+            </span>
+            {observations.length > 0 && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                Observaties ({observations.length})
+              </span>
+            )}
+          </div>
         </div>
       </div>
       
