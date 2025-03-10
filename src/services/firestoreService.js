@@ -266,31 +266,43 @@ export const getGlobalStats = async () => {
   try {
     // Haal alle wandelingen op
     const walksSnapshot = await getDocs(collection(db, 'walks'));
-    const walks = walksSnapshot.docs.map(doc => doc.data());
+    const walks = walksSnapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id
+    }));
     
     // Bereken statistieken
     const totalWalks = walksSnapshot.size;
-    const totalDistance = walks.reduce((sum, walk) => sum + (walk.distance || 0), 0);
-    const totalObservations = walks.reduce((sum, walk) => sum + (walk.observationCount || 0), 0);
+    
+    // Zorg ervoor dat we de afstand correct berekenen, ook als deze 0 is
+    const totalDistance = walks.reduce((sum, walk) => {
+      const distance = walk.distance !== undefined ? Number(walk.distance) : 0;
+      return sum + distance;
+    }, 0);
     
     // Haal aantal gebruikers op
     const usersSnapshot = await getDocs(collection(db, 'users'));
     const totalUsers = usersSnapshot.size;
     
-    // Haal aantal observaties op
+    // Haal alle observaties op
     const observationsSnapshot = await getDocs(collection(db, 'observations'));
-    const observationsCount = observationsSnapshot.size;
+    const totalObservations = observationsSnapshot.size;
+    
+    console.log('Globale statistieken berekend:', {
+      totalWalks,
+      totalDistance,
+      totalObservations,
+      totalUsers
+    });
     
     return {
       totalWalks,
       totalDistance,
-      totalObservations: observationsCount || totalObservations,
+      totalObservations,
       totalUsers
     };
   } catch (error) {
     console.error('Fout bij het ophalen van globale statistieken:', error);
-    
-    // Fallback statistieken
     return {
       totalWalks: 0,
       totalDistance: 0,

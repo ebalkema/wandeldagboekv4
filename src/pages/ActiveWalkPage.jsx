@@ -27,9 +27,9 @@ import {
   getOfflineWalk,
   getOfflineObservations
 } from '../services/offlineService';
-import MapComponent from '../components/MapComponent';
+import LazyMapComponent from '../components/LazyMapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
-import VoiceButton from '../components/VoiceButton';
+import LazyVoiceButton from '../components/LazyVoiceButton';
 import ObservationItem from '../components/ObservationItem';
 import OfflineIndicator from '../components/OfflineIndicator';
 import { formatDuration } from '../utils/dateUtils';
@@ -581,7 +581,7 @@ const ActiveWalkPage = () => {
       {/* Kaart */}
       <div className="mb-6 bg-white rounded-lg shadow-md overflow-hidden">
         <div className="h-64 sm:h-80">
-          <MapComponent 
+          <LazyMapComponent 
             center={currentLocation} 
             pathPoints={pathPoints.map(p => [p.lat || p[0], p.lng || p[1]])}
             observations={observations}
@@ -642,7 +642,7 @@ const ActiveWalkPage = () => {
                 Categorie: {observationCategory}
               </p>
             </div>
-            <VoiceButton 
+            <LazyVoiceButton 
               onResult={handleVoiceCommand}
               color="primary"
               size="medium"
@@ -696,7 +696,7 @@ const ActiveWalkPage = () => {
       
       {/* Spraakcommando knop */}
       <div className="fixed bottom-20 right-4 z-30">
-        <VoiceButton 
+        <LazyVoiceButton 
           onResult={handleVoiceCommand}
           label="Observatie"
           stopLabel="Stop"

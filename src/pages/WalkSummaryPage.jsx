@@ -4,7 +4,7 @@ import { getWalk, getWalkObservations } from '../services/firestoreService';
 import { formatDate, formatTime, formatDuration, getDurationInMinutes } from '../utils/dateUtils';
 import { formatDistance } from '../services/locationService';
 import { suggestWalkToJournal, checkJournalApiSupport } from '../services/journalService';
-import MapComponent from '../components/MapComponent';
+import LazyMapComponent from '../components/LazyMapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
 import ObservationItem from '../components/ObservationItem';
 
@@ -187,7 +187,7 @@ const WalkSummaryPage = () => {
       {/* Kaart sectie */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
         <div className="h-64 sm:h-80">
-          <MapComponent 
+          <LazyMapComponent 
             pathPoints={pathPoints}
             observations={observations}
             height="100%"

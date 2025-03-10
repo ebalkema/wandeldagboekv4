@@ -6,9 +6,9 @@ import { getCurrentLocation } from '../services/locationService';
 import { getCachedWeatherData } from '../services/weatherService';
 import { createWalk } from '../services/firestoreService';
 import { isOnline, saveOfflineWalk } from '../services/offlineService';
-import MapComponent from '../components/MapComponent';
+import LazyMapComponent from '../components/LazyMapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
-import VoiceButton from '../components/VoiceButton';
+import LazyVoiceButton from '../components/LazyVoiceButton';
 import OfflineIndicator from '../components/OfflineIndicator';
 
 /**
@@ -149,7 +149,7 @@ const NewWalkPage = () => {
       
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
         <div className="h-64">
-          <MapComponent 
+          <LazyMapComponent 
             currentLocation={location ? [location.lat, location.lng] : null}
             height="100%"
             offlineMode={isOffline}

@@ -50,5 +50,31 @@ export default defineConfig({
     sourcemap: true, // Genereer sourcemaps voor debugging
     minify: 'terser', // Gebruik terser voor betere minificatie
     target: 'esnext', // Moderne browsers
+    chunkSizeWarningLimit: 800, // Verhoog de waarschuwingslimiet voor chunk grootte
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          'vendor-map': ['leaflet'],
+          'vendor-ui': ['react-icons'],
+          // Feature chunks
+          'feature-auth': [
+            './src/context/AuthContext.jsx',
+            './src/pages/LoginPage.jsx',
+            './src/pages/RegisterPage.jsx'
+          ],
+          'feature-walks': [
+            './src/pages/WalksPage.jsx',
+            './src/components/WalkCard.jsx'
+          ],
+          'feature-active-walk': [
+            './src/pages/ActiveWalkPage.jsx',
+            './src/pages/WalkSummaryPage.jsx'
+          ]
+        }
+      }
+    }
   }
 })

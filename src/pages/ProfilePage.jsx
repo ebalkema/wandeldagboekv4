@@ -38,12 +38,28 @@ const ProfilePage = () => {
       if (!currentUser) return;
       
       try {
-        const walks = await getUserWalks(currentUser.uid);
+        const walks = await getUserWalks(currentUser.uid, 100); // Verhoog limiet om alle wandelingen te krijgen
         
         // Bereken statistieken
         const totalWalks = walks.length;
-        const totalDistance = walks.reduce((sum, walk) => sum + (walk.distance || 0), 0);
-        const totalObservations = walks.reduce((sum, walk) => sum + (walk.observationCount || 0), 0);
+        
+        // Zorg ervoor dat we de afstand correct berekenen, ook als deze 0 is
+        const totalDistance = walks.reduce((sum, walk) => {
+          const distance = walk.distance !== undefined ? Number(walk.distance) : 0;
+          return sum + distance;
+        }, 0);
+        
+        // Tel observaties
+        const totalObservations = walks.reduce((sum, walk) => {
+          const observationCount = walk.observationCount || 0;
+          return sum + observationCount;
+        }, 0);
+        
+        console.log('Gebruikersstatistieken berekend:', {
+          totalWalks,
+          totalDistance,
+          totalObservations
+        });
         
         setUserStats({
           totalWalks,
@@ -268,7 +284,7 @@ const ProfilePage = () => {
             </div>
             <div>
               <p className="text-xl font-bold text-gray-800">
-                {(globalStats.totalDistance / 1000).toFixed(0)}
+                {globalStats.totalDistance ? (globalStats.totalDistance / 1000).toFixed(1) : '0'}
               </p>
               <p className="text-sm text-gray-600">Kilometer</p>
             </div>
