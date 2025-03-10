@@ -8,7 +8,6 @@ import { useVoice } from '../context/VoiceContext';
 import WalkCard from '../components/WalkCard';
 import VoiceButton from '../components/VoiceButton';
 import WeatherDisplay from '../components/WeatherDisplay';
-import { FaPodcast, FaHeadphones } from 'react-icons/fa';
 
 /**
  * Dashboard pagina
@@ -98,28 +97,6 @@ const DashboardPage = () => {
           {error}
         </div>
       )}
-
-      {/* Podcast sectie */}
-      <div className="bg-primary-50 rounded-lg shadow-md p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="bg-primary-100 p-3 rounded-full mr-3">
-              <FaPodcast className="text-primary-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-800">Menno & Erwin Podcast</h2>
-              <p className="text-sm text-gray-600">Ontdek de natuur met onze podcast</p>
-            </div>
-          </div>
-          <Link 
-            to="/podcast" 
-            className="bg-primary-600 text-white py-1 px-3 rounded-lg text-sm hover:bg-primary-700 transition-colors flex items-center"
-          >
-            <FaHeadphones className="mr-1" />
-            Beluisteren
-          </Link>
-        </div>
-      </div>
 
       {/* Actieve wandeling */}
       <div className="mb-6">
