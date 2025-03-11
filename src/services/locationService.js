@@ -41,107 +41,56 @@ export const isBrowserLocationSupported = () => {
 };
 
 /**
- * Vraagt expliciet om locatietoestemming door een locatie op te halen
- * Dit zorgt ervoor dat het besturingssysteem de toestemmingsprompt toont
- * @returns {Promise<boolean>} - Of de toestemming is verleend
+ * Controleert of de browser locatietoestemming heeft
+ * @returns {Promise<string>} - 'granted', 'denied', of 'prompt'
  */
-export const requestLocationPermission = () => {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      console.warn('Geolocation wordt niet ondersteund door deze browser.');
-      resolve(false);
-      return;
+export const checkLocationPermission = async () => {
+  try {
+    // Log browser informatie voor debugging
+    logBrowserInfo();
+    
+    // Controleer of de browser navigator.permissions ondersteunt
+    if (navigator.permissions && navigator.permissions.query) {
+      const result = await navigator.permissions.query({ name: 'geolocation' });
+      console.log('Locatietoestemming status:', result.state);
+      return result.state; // 'granted', 'denied', of 'prompt'
+    } else {
+      // Fallback voor browsers die navigator.permissions niet ondersteunen
+      if (navigator.geolocation) {
+        return 'prompt'; // We weten het niet zeker, dus gaan we uit van 'prompt'
+      } else {
+        return 'denied'; // Geolocation wordt niet ondersteund
+      }
     }
-    
-    console.log('Expliciet vragen om locatietoestemming...');
-    
-    // Speciale opties voor iOS-apparaten
-    const isIOSDevice = isIOS();
-    const geoOptions = isIOSDevice ? 
-      { 
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0 // Forceer een nieuwe locatiebepaling
-      } : 
-      { 
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0 // Forceer een nieuwe locatiebepaling
-      };
-    
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        console.log('Locatietoestemming verleend!');
-        resolve(true);
-      },
-      (error) => {
-        console.warn('Locatietoestemming geweigerd of fout:', error);
-        resolve(false);
-      },
-      geoOptions
-    );
-  });
+  } catch (error) {
+    console.error('Fout bij het controleren van locatietoestemming:', error);
+    return 'prompt'; // Bij twijfel, vraag om toestemming
+  }
 };
 
 /**
- * Controleert of de gebruiker toestemming heeft gegeven voor locatietoegang
- * @param {boolean} requestIfDenied - Of er opnieuw om toestemming moet worden gevraagd als deze eerder is geweigerd
- * @returns {Promise<boolean>} - Of de gebruiker toestemming heeft gegeven
+ * Vraagt expliciet om locatietoestemming
+ * @returns {Promise<boolean>} - true als toestemming is verleend, anders false
  */
-export const checkLocationPermission = (requestIfDenied = false) => {
-  return new Promise((resolve) => {
-    if (!navigator.permissions || !navigator.permissions.query) {
-      // Browser ondersteunt geen permissions API, probeer direct locatie op te halen
-      console.log('Browser ondersteunt geen permissions API, probeer direct locatie op te halen');
-      getCurrentLocation(false)
-        .then(() => resolve(true))
-        .catch((error) => {
-          console.warn('Geen locatietoestemming:', error);
-          
-          // Als requestIfDenied is ingeschakeld, vraag opnieuw om toestemming
-          if (requestIfDenied) {
-            console.log('Opnieuw vragen om locatietoestemming...');
-            requestLocationPermission().then(resolve);
-          } else {
-            resolve(false);
-          }
-        });
-      return;
-    }
-    
-    navigator.permissions.query({ name: 'geolocation' })
-      .then((permissionStatus) => {
-        console.log('Locatietoestemming status:', permissionStatus.state);
-        
-        if (permissionStatus.state === 'granted') {
-          resolve(true);
-        } else if (permissionStatus.state === 'prompt') {
-          // Bij 'prompt' status, vraag expliciet om toestemming
-          requestLocationPermission().then(resolve);
-        } else if (permissionStatus.state === 'denied' && requestIfDenied) {
-          // Bij 'denied' status en requestIfDenied is true, vraag opnieuw om toestemming
-          requestLocationPermission().then(resolve);
-        } else {
-          resolve(false);
-        }
-        
-        // Luister naar toekomstige wijzigingen
-        permissionStatus.onchange = () => {
-          console.log('Locatietoestemming gewijzigd naar:', permissionStatus.state);
-        };
-      })
-      .catch((error) => {
-        console.warn('Fout bij het controleren van locatietoestemming:', error);
-        
-        // Als requestIfDenied is ingeschakeld, vraag opnieuw om toestemming
-        if (requestIfDenied) {
-          console.log('Opnieuw vragen om locatietoestemming na fout...');
-          requestLocationPermission().then(resolve);
-        } else {
-          resolve(false);
-        }
+export const requestLocationPermission = async () => {
+  console.log('Expliciet vragen om locatietoestemming...');
+  
+  try {
+    // Vraag om de huidige positie om toestemming te triggeren
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       });
-  });
+    });
+    
+    console.log('Locatietoestemming verleend!');
+    return true;
+  } catch (error) {
+    console.error('Locatietoestemming geweigerd of fout:', error);
+    return false;
+  }
 };
 
 /**
@@ -181,185 +130,107 @@ export const isAndroid = () => {
 
 /**
  * Haalt de huidige locatie op
- * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
- * @param {boolean} requestPermission - Of er expliciet om toestemming moet worden gevraagd als deze eerder is geweigerd
- * @returns {Promise<{lat: number, lng: number, isDefault: boolean}>} - Huidige locatie
+ * @returns {Promise<{lat: number, lng: number}>} - Huidige locatie
  */
-export const getCurrentLocation = (useFallback = true, requestPermission = true) => {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      console.warn('Geolocation wordt niet ondersteund door deze browser.');
-      if (useFallback) {
-        console.info('Fallback locatie wordt gebruikt.');
-        resolve({...DEFAULT_LOCATION, isDefault: true});
-      } else {
-        reject(new Error('Geolocation wordt niet ondersteund door deze browser.'));
-      }
-      return;
-    }
+export const getCurrentLocation = async () => {
+  try {
+    // Log browser informatie voor debugging
+    logBrowserInfo();
     
-    // Log browser en platform informatie voor debugging
-    console.log('Browser informatie:', navigator.userAgent);
-    console.log('Platform:', navigator.platform);
-    const isMacOSDevice = isMacOS();
-    const isMobile = isMobileDevice();
-    const isIOSDevice = isIOS();
-    const isAndroidDevice = isAndroid();
-    console.log('Is macOS:', isMacOSDevice);
-    console.log('Is mobiel apparaat:', isMobile);
-    console.log('Is iOS apparaat:', isIOSDevice);
-    console.log('Is Android apparaat:', isAndroidDevice);
+    // Controleer of we op een macOS desktop zijn
+    const isMacDesktop = isMacOS() && !isMobileDevice();
     
-    // Als het een macOS-apparaat is en geen mobiel apparaat, gebruik direct de fallback
-    // Dit is omdat macOS vaak problemen heeft met CoreLocationProvider
-    if (isMacOSDevice && !isMobile && useFallback) {
-      console.info('macOS desktop gedetecteerd, gebruik direct fallback locatie om CoreLocation problemen te vermijden');
-      resolve({...DEFAULT_LOCATION, isDefault: true});
-      return;
-    }
+    // Controleer eerst de huidige toestemmingsstatus
+    const permissionStatus = await checkLocationPermission();
     
-    // Speciale instellingen voor iOS-apparaten
-    const geoOptions = isIOSDevice ? 
-      { 
-        enableHighAccuracy: true,
-        timeout: 30000, // Langere timeout voor iOS
-        maximumAge: 0 // Forceer een nieuwe locatiebepaling op iOS
-      } : isAndroidDevice ?
-      {
-        enableHighAccuracy: true,
-        timeout: 20000, // Langere timeout voor Android
-        maximumAge: 30000
-      } :
-      { 
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      };
-    
-    // Probeer eerst de locatietoestemming te controleren
-    checkLocationPermission(requestPermission).then(hasPermission => {
-      console.log('Heeft locatietoestemming:', hasPermission);
-      
-      if (!hasPermission) {
-        if (requestPermission) {
-          // Vraag expliciet om toestemming als deze nog niet is verleend
-          console.log('Expliciet vragen om locatietoestemming...');
-          requestLocationPermission().then(granted => {
-            if (granted) {
-              // Probeer opnieuw de locatie op te halen na toestemming
-              getCurrentLocation(useFallback, false).then(resolve).catch(reject);
-            } else if (useFallback) {
-              console.info('Geen locatietoestemming na verzoek, fallback locatie wordt gebruikt.');
-              resolve({...DEFAULT_LOCATION, isDefault: true});
-            } else {
-              reject(new Error('Locatietoestemming geweigerd.'));
-            }
-          });
-          return;
-        } else if (useFallback) {
-          console.info('Geen locatietoestemming, fallback locatie wordt gebruikt.');
-          resolve({...DEFAULT_LOCATION, isDefault: true});
-          return;
-        } else {
-          reject(new Error('Locatietoestemming geweigerd.'));
-          return;
-        }
-      }
-      
-      const timeoutId = setTimeout(() => {
-        console.warn('Locatie ophalen duurde te lang, fallback locatie wordt gebruikt.');
-        if (useFallback) {
-          resolve({...DEFAULT_LOCATION, isDefault: true});
-        } else {
-          reject(new Error('Locatie ophalen duurde te lang.'));
-        }
-      }, isIOSDevice ? 35000 : 25000); // Nog langere timeout voor iOS
-      
-      // Probeer eerst met hoge nauwkeurigheid
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          clearTimeout(timeoutId);
-          console.log('Locatie succesvol opgehaald met hoge nauwkeurigheid:', position.coords);
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            isDefault: false
-          });
-        },
-        (error) => {
-          console.warn('Fout bij het ophalen van locatie met hoge nauwkeurigheid:', error);
-          
-          // Als de fout PERMISSION_DENIED is en we hebben nog niet geprobeerd om toestemming te vragen
-          if (error.code === ERROR_CODES.PERMISSION_DENIED && requestPermission) {
-            clearTimeout(timeoutId);
-            console.log('Locatietoestemming geweigerd, probeer opnieuw toestemming te vragen...');
-            requestLocationPermission().then(granted => {
-              if (granted) {
-                // Probeer opnieuw de locatie op te halen na toestemming
-                getCurrentLocation(useFallback, false).then(resolve).catch(reject);
-              } else if (useFallback) {
-                console.info('Geen locatietoestemming na verzoek, fallback locatie wordt gebruikt.');
-                resolve({...DEFAULT_LOCATION, isDefault: true});
-              } else {
-                reject(new Error('Locatietoestemming geweigerd.'));
-              }
-            });
-            return;
+    // Als de toestemming al is verleend, gebruik de echte locatie
+    if (permissionStatus === 'granted') {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              isDefault: false
+            };
+            resolve(location);
+          },
+          (error) => {
+            console.error('Fout bij het ophalen van locatie:', error);
+            
+            // Gebruik fallback locatie bij fout
+            const fallbackLocation = getFallbackLocation();
+            console.warn('Fallback locatie gebruikt vanwege fout:', fallbackLocation);
+            resolve(fallbackLocation);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
           }
-          
-          // Probeer opnieuw met lagere nauwkeurigheid
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              clearTimeout(timeoutId);
-              console.log('Locatie succesvol opgehaald met lage nauwkeurigheid:', position.coords);
-              resolve({
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                accuracy: position.coords.accuracy,
-                isDefault: false
-              });
-            },
-            (secondError) => {
-              clearTimeout(timeoutId);
-              const errorMessage = getErrorMessage(secondError);
-              console.warn('Fout bij het ophalen van locatie met lage nauwkeurigheid:', errorMessage);
-              
-              // Als de fout PERMISSION_DENIED is en we hebben nog niet geprobeerd om toestemming te vragen
-              if (secondError.code === ERROR_CODES.PERMISSION_DENIED && requestPermission) {
-                console.log('Locatietoestemming geweigerd, probeer opnieuw toestemming te vragen...');
-                requestLocationPermission().then(granted => {
-                  if (granted) {
-                    // Probeer opnieuw de locatie op te halen na toestemming
-                    getCurrentLocation(useFallback, false).then(resolve).catch(reject);
-                  } else if (useFallback) {
-                    console.info('Geen locatietoestemming na verzoek, fallback locatie wordt gebruikt.');
-                    resolve({...DEFAULT_LOCATION, isDefault: true});
-                  } else {
-                    reject(new Error('Locatietoestemming geweigerd.'));
-                  }
-                });
-                return;
-              }
-              
-              if (useFallback) {
-                console.info('Fallback locatie wordt gebruikt na meerdere pogingen.');
-                resolve({...DEFAULT_LOCATION, isDefault: true, error: errorMessage});
-              } else {
-                reject(new Error(errorMessage));
-              }
-            },
-            { 
-              enableHighAccuracy: false,
-              timeout: isIOSDevice ? 25000 : 15000,
-              maximumAge: isIOSDevice ? 30000 : 300000
-            }
-          );
-        },
-        geoOptions
-      );
-    });
-  });
+        );
+      });
+    } 
+    // Als we op macOS desktop zijn en de toestemming is 'prompt', vraag expliciet om toestemming
+    else if (isMacDesktop && permissionStatus === 'prompt') {
+      console.log('macOS desktop gedetecteerd, expliciet vragen om locatietoestemming');
+      
+      const permissionGranted = await requestLocationPermission();
+      
+      if (permissionGranted) {
+        // Toestemming verleend, probeer opnieuw de locatie op te halen
+        return getCurrentLocation();
+      } else {
+        // Toestemming geweigerd, gebruik fallback locatie
+        const fallbackLocation = getFallbackLocation();
+        console.warn('Fallback locatie gebruikt na geweigerde toestemming');
+        return fallbackLocation;
+      }
+    }
+    // Als de toestemming is geweigerd of we zijn op een niet-ondersteund platform
+    else if (permissionStatus === 'denied') {
+      const fallbackLocation = getFallbackLocation();
+      console.warn('Fallback locatie gebruikt vanwege geweigerde toestemming');
+      return fallbackLocation;
+    }
+    // In alle andere gevallen, probeer de locatie op te halen
+    else {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const location = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              isDefault: false
+            };
+            resolve(location);
+          },
+          (error) => {
+            console.error('Fout bij het ophalen van locatie:', error);
+            
+            // Gebruik fallback locatie bij fout
+            const fallbackLocation = getFallbackLocation();
+            console.warn('Fallback locatie gebruikt vanwege fout:', fallbackLocation);
+            resolve(fallbackLocation);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      });
+    }
+  } catch (error) {
+    console.error('Onverwachte fout bij het ophalen van locatie:', error);
+    
+    // Gebruik fallback locatie bij onverwachte fout
+    const fallbackLocation = getFallbackLocation();
+    console.warn('Fallback locatie gebruikt vanwege onverwachte fout');
+    return fallbackLocation;
+  }
 };
 
 // Houdt bij hoeveel opeenvolgende fouten er zijn opgetreden

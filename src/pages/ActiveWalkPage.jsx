@@ -70,6 +70,7 @@ const ActiveWalkPage = () => {
   const [manualObservationText, setManualObservationText] = useState('');
   const [consecutiveLocationErrors, setConsecutiveLocationErrors] = useState(0);
   const [selectedBirdRadius, setSelectedBirdRadius] = useState(2);
+  const [hasShownLocationWarning, setHasShownLocationWarning] = useState(false);
   
   const watchIdRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -274,14 +275,24 @@ const ActiveWalkPage = () => {
   };
 
   // Start de locatietracking
-  const startTracking = () => {
+  const startTracking = async () => {
+    console.log('Locatietracking starten...');
+    
     try {
-      console.log('Locatietracking starten...');
+      // Controleer eerst de locatietoestemming
+      const permissionStatus = await checkLocationPermission();
       
-      // Controleer of de browser locatieservices ondersteunt
-      if (!isBrowserLocationSupported()) {
-        setError('Je browser ondersteunt geen locatieservices. Gebruik een moderne browser met GPS-ondersteuning.');
-        return;
+      if (permissionStatus !== 'granted') {
+        // Vraag om toestemming als deze nog niet is verleend
+        const permissionGranted = await requestLocationPermission();
+        
+        if (!permissionGranted) {
+          if (!hasShownLocationWarning) {
+            alert('Locatietoestemming is vereist om je wandeling te volgen. Je kunt de wandeling nog steeds gebruiken, maar de route wordt niet bijgehouden.');
+            setHasShownLocationWarning(true);
+          }
+          return null;
+        }
       }
       
       // Initialiseer state variabelen
