@@ -1,408 +1,282 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getWalk, getWalkObservations } from '../services/firestoreService';
-import { formatDate, formatTime, formatDuration, getDurationInMinutes } from '../utils/dateUtils';
-import { formatDistance } from '../services/locationService';
-import { suggestWalkToJournal, checkJournalApiSupport } from '../services/journalService';
-import LazyMapComponent from '../components/LazyMapComponent';
-import WeatherDisplay from '../components/WeatherDisplay';
-import ObservationItem from '../components/ObservationItem';
-import BirdObservations from '../components/BirdObservations';
-import { FaShare, FaBook, FaBinoculars } from 'react-icons/fa';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getWalkById, getWalkObservations } from '../services/firestoreService';
+import { formatDistance, formatDuration } from '../utils/formatUtils';
+import { formatDate, formatTime } from '../utils/dateUtils';
+import MapComponent from '../components/MapComponent';
+import ObservationCard from '../components/ObservationCard';
+import ShareButton from '../components/ShareButton';
+import { FaArrowLeft, FaCalendarAlt, FaClock, FaRuler, FaMapMarkerAlt, FaCamera } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+import { createShareableImage } from '../utils/shareUtils';
 
 /**
- * Pagina voor het weergeven van een samenvatting van een voltooide wandeling
+ * Pagina voor het weergeven van een samenvatting van een afgesloten wandeling, inclusief alle observaties, foto's en een kaart.
  */
 const WalkSummaryPage = () => {
   const { walkId } = useParams();
   const navigate = useNavigate();
-  const { userSettings } = useAuth();
-  
   const [walk, setWalk] = useState(null);
   const [observations, setObservations] = useState([]);
-  const [pathPoints, setPathPoints] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [isJournalSupported, setIsJournalSupported] = useState(false);
-  const [sharingToJournal, setSharingToJournal] = useState(false);
-  const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
-  const [showBirdsOnMap, setShowBirdsOnMap] = useState(false);
-  const [selectedBirdRadius, setSelectedBirdRadius] = useState(null);
-
-  // Controleer of Journal API wordt ondersteund
-  useEffect(() => {
-    setIsJournalSupported(checkJournalApiSupport());
-  }, []);
-
+  const [error, setError] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  
   // Haal wandelgegevens op
   useEffect(() => {
     const fetchWalkData = async () => {
-      if (!walkId) return;
-      
       try {
-        const walkData = await getWalk(walkId);
-        if (!walkData) {
-          setError('Wandeling niet gevonden');
-          return;
-        }
+        setLoading(true);
         
+        // Haal wandeling op
+        const walkData = await getWalkById(walkId);
+        if (!walkData) {
+          throw new Error('Wandeling niet gevonden');
+        }
         setWalk(walkData);
         
         // Haal observaties op
         const observationsData = await getWalkObservations(walkId);
-        
-        // Dedupliceer observaties
-        const uniqueObservations = [];
-        const observationIds = new Set();
-        const observationTexts = new Set();
-        
-        observationsData.forEach(obs => {
-          // Als deze ID al is toegevoegd, sla over
-          if (observationIds.has(obs.id)) return;
-          
-          // Als er een zeer vergelijkbare observatie is (zelfde tekst en locatie), sla over
-          const obsKey = `${obs.text}-${obs.location?.lat}-${obs.location?.lng}`;
-          if (observationTexts.has(obsKey)) return;
-          
-          // Voeg toe aan unieke observaties
-          uniqueObservations.push(obs);
-          observationIds.add(obs.id);
-          observationTexts.add(obsKey);
+        // Sorteer observaties op tijdstip
+        const sortedObservations = observationsData.sort((a, b) => {
+          return a.timestamp?.toDate() - b.timestamp?.toDate();
         });
+        setObservations(sortedObservations);
         
-        console.log(`Origineel aantal observaties: ${observationsData.length}, Na deduplicatie: ${uniqueObservations.length}`);
-        setObservations(uniqueObservations);
-        
-        // Zet pathPoints
-        if (walkData.pathPoints && Object.keys(walkData.pathPoints).length > 0) {
-          // Converteer pathPoints naar het juiste formaat voor de kaart
-          let points = [];
-          
-          // Controleer of pathPoints een array is
-          if (Array.isArray(walkData.pathPoints)) {
-            // Sorteer op index als beschikbaar
-            const sortedPoints = [...walkData.pathPoints].sort((a, b) => {
-              if (a.index !== undefined && b.index !== undefined) {
-                return a.index - b.index;
-              }
-              return 0;
-            });
-            
-            // Converteer naar [lat, lng] formaat voor de kaart
-            points = sortedPoints.map(point => {
-              if (Array.isArray(point)) {
-                return point; // Al in het juiste formaat
-              } else if (point.lat !== undefined && point.lng !== undefined) {
-                return [point.lat, point.lng];
-              }
-              return null;
-            }).filter(point => point !== null);
-          } else {
-            // Het kan een object zijn met geneste punten
-            const keys = Object.keys(walkData.pathPoints);
-            // Sorteer de keys numeriek als mogelijk
-            const sortedKeys = keys.sort((a, b) => {
-              const numA = parseInt(a);
-              const numB = parseInt(b);
-              if (!isNaN(numA) && !isNaN(numB)) {
-                return numA - numB;
-              }
-              return 0;
-            });
-            
-            points = sortedKeys.map(key => {
-              const point = walkData.pathPoints[key];
-              if (Array.isArray(point)) {
-                return point;
-              } else if (point && point.lat !== undefined && point.lng !== undefined) {
-                return [point.lat, point.lng];
-              }
-              return null;
-            }).filter(point => point !== null);
-          }
-          
-          console.log(`Wandelpad punten: ${points.length}`);
-          if (points.length > 0) {
-            console.log('Eerste punt:', points[0], 'Laatste punt:', points[points.length - 1]);
-          }
-          
-          setPathPoints(points);
-        } else {
-          console.warn('Geen pathPoints gevonden in wandeldata');
-        }
-      } catch (error) {
-        console.error('Fout bij het ophalen van wandelgegevens:', error);
-        setError('Kon wandelgegevens niet laden');
-      } finally {
+        setLoading(false);
+      } catch (err) {
+        console.error('Fout bij het ophalen van wandelgegevens:', err);
+        setError('Kon de wandelgegevens niet laden. Probeer het later opnieuw.');
         setLoading(false);
       }
     };
     
     fetchWalkData();
   }, [walkId]);
-
-  // Bereken de duur van de wandeling
-  const calculateDuration = () => {
-    if (!walk || !walk.startTime || !walk.endTime) return null;
+  
+  // Bereken statistieken
+  const getStatistics = () => {
+    if (!walk) return {};
     
-    return getDurationInMinutes(
-      new Date(walk.startTime.seconds * 1000),
-      new Date(walk.endTime.seconds * 1000)
-    );
+    const distance = walk.distance || 0;
+    const duration = walk.endTime && walk.startTime 
+      ? (walk.endTime.toDate() - walk.startTime.toDate()) / 1000 
+      : 0;
+    const photoCount = observations.reduce((count, obs) => {
+      return count + (obs.mediaUrls?.length || 0);
+    }, 0);
+    
+    return {
+      distance,
+      duration,
+      observationCount: observations.length,
+      photoCount
+    };
   };
-
-  // Deel wandeling met Apple Journal
-  const handleShareToJournal = async () => {
-    if (!walk) return;
-    
+  
+  const stats = getStatistics();
+  
+  // Deel de wandeling
+  const handleShare = async () => {
     try {
-      setSharingToJournal(true);
-      const success = await suggestWalkToJournal(walk, observations);
+      setShareLoading(true);
       
-      if (success) {
-        alert('Wandeling succesvol gedeeld met Apple Journal');
+      // Genereer een deelbare afbeelding
+      const shareableImage = await createShareableImage(walk, observations, stats);
+      
+      // Deel de afbeelding
+      if (navigator.share && shareableImage) {
+        try {
+          await navigator.share({
+            title: `Wandeling: ${walk.title || 'Mijn wandeling'}`,
+            text: `Bekijk mijn wandeling van ${formatDistance(stats.distance)} op ${formatDate(walk.startTime?.toDate())}`,
+            files: [shareableImage]
+          });
+          console.log('Wandeling succesvol gedeeld');
+        } catch (shareError) {
+          // Controleer of het een geannuleerde deelactie is
+          if (shareError.name === 'AbortError') {
+            console.log('Delen geannuleerd door gebruiker');
+          } else {
+            // Voor andere fouten, val terug op de URL-kopieer methode
+            console.warn('Web Share API fout, terugvallen op URL kopiëren:', shareError);
+            const shareUrl = `${window.location.origin}/share/${walkId}`;
+            await navigator.clipboard.writeText(shareUrl);
+            alert('Link gekopieerd naar klembord! Je kunt deze nu delen.');
+          }
+        }
       } else {
-        alert('Kon wandeling niet delen met Apple Journal');
+        // Fallback voor browsers zonder Web Share API
+        const shareUrl = `${window.location.origin}/share/${walkId}`;
+        
+        // Kopieer de URL naar het klembord
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link gekopieerd naar klembord! Je kunt deze nu delen.');
       }
-    } catch (error) {
-      console.error('Fout bij het delen met Apple Journal:', error);
-      alert('Er is een fout opgetreden bij het delen met Apple Journal');
+    } catch (err) {
+      console.error('Fout bij het delen:', err);
+      
+      // Toon alleen een foutmelding als het geen geannuleerde deelactie is
+      if (err.name !== 'AbortError') {
+        alert('Kon de wandeling niet delen. Probeer het later opnieuw.');
+      }
     } finally {
-      setSharingToJournal(false);
+      setShareLoading(false);
     }
   };
-
-  // Deel wandeling via andere methoden
-  const handleShare = () => {
-    if (!walk) return;
-    
-    // Bereid de tekst voor
-    let shareText = `Wandeling: ${walk.name}\n`;
-    
-    if (walk.distance) {
-      shareText += `Afstand: ${formatDistance(walk.distance)}\n`;
-    }
-    
-    const duration = calculateDuration();
-    if (duration) {
-      shareText += `Duur: ${formatDuration(duration)}\n`;
-    }
-    
-    if (observations.length > 0) {
-      shareText += `Observaties: ${observations.length}\n`;
-    }
-    
-    // Gebruik de Web Share API als beschikbaar
-    if (navigator.share) {
-      navigator.share({
-        title: `Wandeling: ${walk.name}`,
-        text: shareText,
-        // URL zou naar je app kunnen verwijzen
-        url: window.location.href
-      }).catch(error => {
-        console.error('Fout bij het delen:', error);
-      });
-    } else {
-      // Fallback als Web Share API niet beschikbaar is
-      alert(`Deel deze wandeling:\n\n${shareText}`);
-    }
+  
+  // Ga terug naar de vorige pagina
+  const handleBack = () => {
+    navigate(-1);
   };
-
-  // Functie om een vogellocatie te selecteren op de kaart
-  const handleBirdLocationSelect = (location, showAll = false, radius = 2) => {
-    setSelectedBirdLocation(location);
-    setShowBirdsOnMap(true);
-    
-    // Sla de radius op om te tonen in de UI
-    if (radius) {
-      setSelectedBirdRadius(radius);
-    }
-  };
-
-  // Functie om terug te gaan naar de normale kaartweergave
-  const handleResetMapView = () => {
-    setSelectedBirdLocation(null);
-    setShowBirdsOnMap(false);
-  };
-
+  
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span className="ml-2 text-gray-600">Wandeling laden...</span>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="w-16 h-16 border-t-4 border-green-500 border-solid rounded-full animate-spin"></div>
+        <p className="mt-4 text-lg text-gray-600">Wandelgegevens laden...</p>
       </div>
     );
   }
-
+  
   if (error) {
     return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-        <p>{error}</p>
-        <button
-          onClick={() => navigate('/')}
-          className="mt-4 bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700"
-        >
-          Terug naar dashboard
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="p-6 bg-red-100 rounded-lg">
+          <h2 className="mb-4 text-xl font-bold text-red-700">Fout</h2>
+          <p className="text-red-600">{error}</p>
+          <button 
+            onClick={handleBack}
+            className="px-4 py-2 mt-4 text-white bg-green-600 rounded-lg hover:bg-green-700"
+          >
+            Terug
+          </button>
+        </div>
       </div>
     );
   }
-
+  
   if (!walk) {
     return (
-      <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-        <p>Wandeling niet gevonden</p>
-        <Link
-          to="/"
-          className="mt-4 inline-block bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-        >
-          Terug naar dashboard
-        </Link>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="p-6 bg-yellow-100 rounded-lg">
+          <h2 className="mb-4 text-xl font-bold text-yellow-700">Wandeling niet gevonden</h2>
+          <p className="text-yellow-600">De opgevraagde wandeling kon niet worden gevonden.</p>
+          <button 
+            onClick={handleBack}
+            className="px-4 py-2 mt-4 text-white bg-green-600 rounded-lg hover:bg-green-700"
+          >
+            Terug
+          </button>
+        </div>
       </div>
     );
   }
-
-  const duration = calculateDuration();
-
+  
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">{walk?.name || 'Wandelsamenvatting'}</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header met wandelinformatie */}
+      <div className="relative bg-green-700 text-white">
+        <div className="container px-4 py-8 mx-auto">
+          <button 
+            onClick={handleBack}
+            className="absolute top-4 left-4 p-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30"
+            aria-label="Terug"
+          >
+            <FaArrowLeft />
+          </button>
+          
+          <h1 className="mb-2 text-2xl font-bold text-center">
+            {walk.title || 'Mijn wandeling'}
+          </h1>
+          
+          <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
+            <div className="flex items-center">
+              <FaCalendarAlt className="mr-2" />
+              <span>{formatDate(walk.startTime?.toDate())}</span>
+            </div>
+            <div className="flex items-center">
+              <FaClock className="mr-2" />
+              <span>{formatDuration(stats.duration)}</span>
+            </div>
+            <div className="flex items-center">
+              <FaRuler className="mr-2" />
+              <span>{formatDistance(stats.distance)}</span>
+            </div>
+            <div className="flex items-center">
+              <FaMapMarkerAlt className="mr-2" />
+              <span>{observations.length} observaties</span>
+            </div>
+            <div className="flex items-center">
+              <FaCamera className="mr-2" />
+              <span>{stats.photoCount} foto's</span>
+            </div>
+          </div>
+        </div>
+      </div>
       
-      {loading ? (
-        <div className="bg-white rounded-lg shadow-md p-6 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-          <p>Wandelgegevens laden...</p>
-        </div>
-      ) : error ? (
-        <div className="bg-white rounded-lg shadow-md p-6 text-center text-red-600">
-          <p>{error}</p>
-        </div>
-      ) : (
-        <>
-          {/* Kaart */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            {showBirdsOnMap && (
-              <div className="bg-primary-50 p-2 flex justify-between items-center">
-                <div className="flex items-center">
-                  <FaBinoculars className="text-primary-600 mr-2" />
-                  <span className="text-sm font-medium">
-                    {selectedBirdLocation && !Array.isArray(selectedBirdLocation) 
-                      ? `${selectedBirdLocation.dutchName || selectedBirdLocation.name} op kaart` 
-                      : `Vogelwaarnemingen binnen ${selectedBirdRadius} km`}
-                  </span>
-                </div>
-                <button 
-                  onClick={handleResetMapView}
-                  className="text-xs bg-white text-primary-600 border border-primary-300 px-2 py-1 rounded hover:bg-primary-50"
-                >
-                  Terug naar wandeling
-                </button>
+      {/* Kaart sectie */}
+      <div className="container px-4 py-6 mx-auto">
+        <div className="p-4 bg-white rounded-lg shadow-md">
+          <h2 className="mb-4 text-xl font-bold text-gray-800">Route</h2>
+          <div className="h-64 overflow-hidden rounded-lg sm:h-96">
+            {(walk.path || walk.pathPoints) && (walk.path?.length > 0 || walk.pathPoints?.length > 0) ? (
+              <MapComponent 
+                pathPoints={walk.path || walk.pathPoints}
+                observations={observations}
+                center={(walk.path && walk.path[0]) || (walk.pathPoints && walk.pathPoints[0]) || (walk.startLocation && [walk.startLocation.lat, walk.startLocation.lng])}
+                showObservations={true}
+                interactive={true}
+                className="w-full h-full"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full bg-gray-100">
+                <p className="text-gray-500">Geen routegegevens beschikbaar</p>
               </div>
             )}
-            <div className="h-64 sm:h-80">
-              <LazyMapComponent 
-                center={walk?.startLocation ? [walk.startLocation.lat, walk.startLocation.lng] : null}
-                pathPoints={pathPoints}
-                observations={observations}
-                birdLocations={selectedBirdLocation}
-                showTimestamps={true}
-              />
-            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Observaties tijdlijn */}
+      <div className="container px-4 py-6 mx-auto">
+        <div className="p-4 bg-white rounded-lg shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Observaties</h2>
+            <ShareButton 
+              onClick={handleShare} 
+              loading={shareLoading}
+              text="Deel deze wandeling"
+            />
           </div>
           
-          {/* Wandelgegevens */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center">
-                <p className="text-gray-500 text-sm">Afstand</p>
-                <p className="text-xl font-bold text-primary-600">
-                  {walk?.distance ? (walk.distance / 1000).toFixed(2) : '0'} km
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-gray-500 text-sm">Duur</p>
-                <p className="text-xl font-bold text-primary-600">
-                  {calculateDuration() || '0 min'}
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-gray-500 text-sm">Observaties</p>
-                <p className="text-xl font-bold text-primary-600">
-                  {observations.length}
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-gray-500 text-sm">Weer</p>
-                <div className="flex justify-center">
-                  {walk?.weather ? (
-                    <WeatherDisplay weather={walk.weather} iconSize="md" />
-                  ) : (
-                    <span className="text-xl font-bold text-primary-600">-</span>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-center space-x-2 mt-4">
-              <button
-                onClick={handleShare}
-                className="bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors flex items-center"
-              >
-                <FaShare className="mr-2" />
-                Delen
-              </button>
-              
-              {isJournalSupported && (
-                <button
-                  onClick={handleShareToJournal}
-                  className="bg-secondary-600 text-white py-2 px-4 rounded-lg hover:bg-secondary-700 transition-colors flex items-center"
-                  disabled={sharingToJournal}
-                >
-                  <FaBook className="mr-2" />
-                  {sharingToJournal ? 'Delen...' : 'Naar Journal'}
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {/* Observaties */}
-          {observations.length > 0 ? (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Observaties</h2>
-              <div className="space-y-4">
-                {observations.map(observation => (
-                  <ObservationItem 
-                    key={observation.id} 
-                    observation={observation} 
-                  />
-                ))}
-              </div>
-            </div>
+          {observations.length === 0 ? (
+            <p className="py-4 text-center text-gray-500">Geen observaties voor deze wandeling</p>
           ) : (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6 text-center text-gray-500">
-              <p>Geen observaties voor deze wandeling</p>
+            <div className="space-y-6">
+              {observations.map((observation, index) => (
+                <motion.div
+                  key={observation.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="relative pl-8 border-l-2 border-green-500"
+                >
+                  <div className="absolute top-0 left-0 w-4 h-4 -ml-2 bg-green-500 rounded-full"></div>
+                  <div className="mb-1 text-sm text-gray-500">
+                    {formatTime(observation.timestamp?.toDate())}
+                  </div>
+                  <ObservationCard 
+                    observation={observation}
+                    showActions={false}
+                    className="w-full"
+                  />
+                </motion.div>
+              ))}
             </div>
           )}
-          
-          {/* Vogelwaarnemingen */}
-          {walk?.startLocation && (
-            <div className="mb-6">
-              <BirdObservations 
-                location={{ lat: walk.startLocation.lat, lng: walk.startLocation.lng }} 
-                radius={userSettings?.birdRadius || selectedBirdRadius || 10}
-                onBirdLocationSelect={handleBirdLocationSelect}
-              />
-            </div>
-          )}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 };

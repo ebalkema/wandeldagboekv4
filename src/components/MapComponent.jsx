@@ -18,7 +18,8 @@ const MapComponent = ({
   showTimestamps = false,
   offlineMode = false,
   onObservationClick,
-  onBirdLocationClick
+  onBirdLocationClick,
+  className = ''
 }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -30,6 +31,73 @@ const MapComponent = ({
   const [mapError, setMapError] = useState(false);
   const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [processedPathPoints, setProcessedPathPoints] = useState([]);
+
+  // Verwerk de pathPoints naar een consistent formaat
+  useEffect(() => {
+    if (!pathPoints || pathPoints.length === 0) {
+      setProcessedPathPoints([]);
+      return;
+    }
+
+    try {
+      // Converteer pathPoints naar het juiste formaat voor de kaart
+      let points = [];
+      
+      // Controleer of pathPoints een array is
+      if (Array.isArray(pathPoints)) {
+        // Sorteer op index als beschikbaar
+        const sortedPoints = [...pathPoints].sort((a, b) => {
+          if (a.index !== undefined && b.index !== undefined) {
+            return a.index - b.index;
+          }
+          return 0;
+        });
+        
+        // Converteer naar [lat, lng] formaat voor de kaart
+        points = sortedPoints.map(point => {
+          if (Array.isArray(point)) {
+            return point; // Al in het juiste formaat
+          } else if (point.lat !== undefined && point.lng !== undefined) {
+            return [point.lat, point.lng];
+          }
+          return null;
+        }).filter(point => point !== null);
+      } else if (typeof pathPoints === 'object') {
+        // Het kan een object zijn met geneste punten
+        const keys = Object.keys(pathPoints);
+        // Sorteer de keys numeriek als mogelijk
+        const sortedKeys = keys.sort((a, b) => {
+          const numA = parseInt(a);
+          const numB = parseInt(b);
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
+          }
+          return 0;
+        });
+        
+        points = sortedKeys.map(key => {
+          const point = pathPoints[key];
+          if (Array.isArray(point)) {
+            return point;
+          } else if (point && point.lat !== undefined && point.lng !== undefined) {
+            return [point.lat, point.lng];
+          }
+          return null;
+        }).filter(point => point !== null);
+      }
+      
+      console.log(`Wandelpad punten verwerkt: ${points.length}`);
+      if (points.length > 0) {
+        console.log('Eerste punt:', points[0], 'Laatste punt:', points[points.length - 1]);
+      }
+      
+      setProcessedPathPoints(points);
+    } catch (error) {
+      console.error('Fout bij het verwerken van pathPoints:', error);
+      setProcessedPathPoints([]);
+    }
+  }, [pathPoints]);
 
   // Haal de huidige locatie op als er geen center is opgegeven
   useEffect(() => {
@@ -54,44 +122,62 @@ const MapComponent = ({
 
   // Initialiseer de kaart
   useEffect(() => {
-    if (!mapInstanceRef.current && mapRef.current) {
-      // Standaard locatie (Amsterdam) als er geen huidige locatie is
-      const defaultLocation = [52.3676, 4.9041];
-      
-      // Gebruik de opgegeven center, of de gebruikerslocatie, of het eerste punt van het pad, of de standaardlocatie
-      const initialLocation = center || 
-                             (userLocation ? userLocation : 
-                             (pathPoints.length > 0 ? 
-                              (Array.isArray(pathPoints[0]) ? pathPoints[0] : [pathPoints[0].lat, pathPoints[0].lng]) : 
-                              defaultLocation));
-      
-      console.log('Kaart initialiseren met locatie:', initialLocation);
+    if (!mapRef.current || mapInstanceRef.current) return;
+    
+    try {
+      // Bepaal het centrum van de kaart
+      const locationToUse = center || userLocation || [52.3676, 4.9041]; // Amsterdam als fallback
       
       // Initialiseer de kaart
-      mapInstanceRef.current = L.map(mapRef.current).setView(initialLocation, zoom);
+      mapInstanceRef.current = L.map(mapRef.current, {
+        center: locationToUse,
+        zoom: zoom,
+        zoomControl: true,
+        attributionControl: true
+      });
       
-      // Voeg OpenStreetMap tiles toe
-      try {
+      // Voeg de tileLayer toe (kaartachtergrond)
+      if (!offlineMode) {
         tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          // Voeg caching toe voor offline gebruik
-          useCache: true,
-          crossOrigin: true
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(mapInstanceRef.current);
-        
-        // Voeg een error handler toe voor offline modus
-        tileLayerRef.current.on('tileerror', (error) => {
-          console.log('Tile error:', error);
-          setMapError(true);
-        });
-      } catch (error) {
-        console.error('Fout bij het laden van kaart tiles:', error);
-        setMapError(true);
+      } else {
+        // Offline modus - toon een grijze achtergrond
+        mapInstanceRef.current.getContainer().style.backgroundColor = '#f0f0f0';
       }
       
-      // Maak lagen voor het pad en markers
+      // Maak layers voor pad en markers
       pathLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
       markersLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+      birdMarkersLayerRef.current = L.layerGroup().addTo(mapInstanceRef.current);
+      
+      // Voeg huidige locatie marker toe als showCurrentLocation is ingeschakeld
+      if (showCurrentLocation) {
+        // Maak een aangepaste marker voor de huidige locatie
+        const currentLocationIcon = L.divIcon({
+          className: 'current-location-marker',
+          html: `
+            <div style="
+              background-color: #4285F4;
+              width: 16px;
+              height: 16px;
+              border-radius: 50%;
+              border: 3px solid white;
+              box-shadow: 0 0 0 2px #4285F4;
+            "></div>
+          `,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+        
+        currentLocationMarkerRef.current = L.marker(locationToUse, {
+          icon: currentLocationIcon,
+          zIndexOffset: 1000
+        }).addTo(mapInstanceRef.current);
+      }
+    } catch (error) {
+      console.error('Fout bij het initialiseren van de kaart:', error);
+      setMapError(true);
     }
     
     // Cleanup functie
@@ -101,7 +187,7 @@ const MapComponent = ({
         mapInstanceRef.current = null;
       }
     };
-  }, [center, userLocation, pathPoints, zoom]);
+  }, [center, userLocation, zoom, offlineMode, showCurrentLocation]);
 
   // Update de kaartweergave als de huidige locatie verandert
   useEffect(() => {
@@ -144,41 +230,70 @@ const MapComponent = ({
     }
   }, [center, userLocation, showCurrentLocation]);
 
-  // Update het pad op de kaart als pathPoints verandert
+  // Update het pad op de kaart als processedPathPoints verandert
   useEffect(() => {
-    if (pathPoints && pathPoints.length > 1 && pathLayerRef.current) {
+    if (processedPathPoints && processedPathPoints.length > 0 && pathLayerRef.current) {
       pathLayerRef.current.clearLayers();
       
-      // Teken het pad
-      const polyline = L.polyline(pathPoints, { 
+      console.log('Aantal routepunten:', processedPathPoints.length);
+      
+      // Als er maar één punt is, teken een cirkel om dat punt
+      if (processedPathPoints.length === 1) {
+        console.log('Slechts één routepunt beschikbaar, teken een cirkel');
+        const point = processedPathPoints[0];
+        
+        // Teken een cirkel rond het punt
+        L.circle(point, {
+          color: '#4285F4',
+          fillColor: '#4285F4',
+          fillOpacity: 0.2,
+          radius: 100 // 100 meter radius
+        }).addTo(pathLayerRef.current);
+        
+        // Voeg een marker toe voor het punt
+        L.marker(point, { 
+          icon: createCustomIcon('green', 'start')
+        }).addTo(pathLayerRef.current)
+        .bindPopup('Start/Eind');
+        
+        // Centreer de kaart op dit punt
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setView(point, 15);
+        }
+        
+        return;
+      }
+      
+      // Teken het pad als er meerdere punten zijn
+      const polyline = L.polyline(processedPathPoints, { 
         color: '#4285F4', 
         weight: 4,
         opacity: 0.7
       }).addTo(pathLayerRef.current);
       
       // Voeg start en eindmarker toe
-      if (pathPoints.length >= 2) {
+      if (processedPathPoints.length >= 2) {
         // Start marker (groen)
-        L.marker(pathPoints[0], { 
+        L.marker(processedPathPoints[0], { 
           icon: createCustomIcon('green', 'start')
         }).addTo(pathLayerRef.current)
         .bindPopup('Start');
         
         // Eind marker (rood)
-        L.marker(pathPoints[pathPoints.length - 1], { 
+        L.marker(processedPathPoints[processedPathPoints.length - 1], { 
           icon: createCustomIcon('red', 'end')
         }).addTo(pathLayerRef.current)
         .bindPopup('Huidige positie');
         
         // Voeg tijdsindicaties toe als showTimestamps is ingeschakeld
-        if (showTimestamps && pathPoints.length > 10) {
+        if (showTimestamps && processedPathPoints.length > 10) {
           // Voeg tijdsindicaties toe op regelmatige intervallen (elke 10% van de route)
-          const interval = Math.max(1, Math.floor(pathPoints.length / 10));
+          const interval = Math.max(1, Math.floor(processedPathPoints.length / 10));
           
-          for (let i = interval; i < pathPoints.length - interval; i += interval) {
+          for (let i = interval; i < processedPathPoints.length - interval; i += interval) {
             if (i % interval === 0) {
-              const point = pathPoints[i];
-              const timestamp = getTimestampForPoint(i, pathPoints.length);
+              const point = processedPathPoints[i];
+              const timestamp = getTimestampForPoint(i, processedPathPoints.length);
               
               L.marker(point, {
                 icon: createCustomIcon('#6B7280', 'timestamp', '8px')
@@ -190,13 +305,13 @@ const MapComponent = ({
       }
       
       // Pas de kaartweergave aan om het hele pad te tonen
-      if (mapInstanceRef.current && pathPoints.length > 1) {
+      if (mapInstanceRef.current && processedPathPoints.length > 1) {
         mapInstanceRef.current.fitBounds(polyline.getBounds(), {
           padding: [50, 50]
         });
       }
     }
-  }, [pathPoints, showTimestamps]);
+  }, [processedPathPoints, showTimestamps]);
 
   // Voeg observatiemarkers toe
   useEffect(() => {
@@ -460,42 +575,13 @@ const MapComponent = ({
   };
 
   return (
-    <div style={{ position: 'relative', height, width: '100%' }}>
-      <div 
-        ref={mapRef} 
-        style={{ 
-          height: '100%', 
-          width: '100%',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }} 
-      />
-      
-      {/* Offline waarschuwing als er een kaartfout is */}
-      {(offlineMode || mapError) && (
-        <div 
-          style={{
-            position: 'absolute',
-            bottom: '10px',
-            left: '10px',
-            right: '10px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            fontSize: '0.875rem',
-            color: '#B45309',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            zIndex: 1000
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <svg style={{ width: '16px', height: '16px', marginRight: '8px' }} fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            Kaartgegevens beperkt beschikbaar in offline modus
-          </div>
+    <div style={{ height }} className={className}>
+      {mapError ? (
+        <div className="flex items-center justify-center h-full bg-gray-100 text-gray-500">
+          <p>Kon de kaart niet laden</p>
         </div>
+      ) : (
+        <div ref={mapRef} style={{ height: '100%', width: '100%' }}></div>
       )}
     </div>
   );
