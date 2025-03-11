@@ -4,8 +4,8 @@
  */
 
 export const VERSION = "3.1.0";
-export const BUILD_NUMBER = 4;
-export const BUILD_DATE = "2025-03-11T07:37:38.727Z";
+export const BUILD_NUMBER = 5;
+export const BUILD_DATE = "2025-03-11T12:15:25.018Z";
 
 export default {
   version: VERSION,
