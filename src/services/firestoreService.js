@@ -398,25 +398,153 @@ export const addObservation = async (walkId, userId, text, location, category = 
  */
 export const addPhotoToObservation = async (observationId, file) => {
   try {
-    // Upload de foto naar Firebase Storage
-    const storageRef = ref(storage, `observations/${observationId}/${Date.now()}_${file.name}`);
-    await uploadBytes(storageRef, file);
-    
-    // Haal de download URL op
-    const downloadURL = await getDownloadURL(storageRef);
-    
-    // Update de observatie met de nieuwe foto URL
-    const observationDoc = await getDoc(doc(db, 'observations', observationId));
-    if (observationDoc.exists()) {
-      const observationData = observationDoc.data();
-      const mediaUrls = observationData.mediaUrls || [];
-      
-      await updateDoc(doc(db, 'observations', observationId), {
-        mediaUrls: [...mediaUrls, downloadURL]
-      });
+    if (!observationId) {
+      throw new Error('Geen observatie ID opgegeven');
     }
     
-    return downloadURL;
+    if (!file) {
+      throw new Error('Geen bestand opgegeven');
+    }
+    
+    // Controleer of Firebase Storage correct is geïnitialiseerd
+    if (!storage) {
+      console.error('Firebase Storage is niet geïnitialiseerd');
+      throw new Error('Opslagservice is niet beschikbaar. Probeer de app opnieuw te laden.');
+    }
+    
+    // Log bestandsinformatie voor debugging
+    console.log('Firebase upload - bestandsinformatie:', {
+      naam: file.name,
+      type: file.type,
+      grootte: `${(file.size / 1024).toFixed(2)} KB`,
+      lastModified: new Date(file.lastModified).toISOString()
+    });
+    
+    // Controleer of het bestand een afbeelding is
+    if (!file.type.startsWith('image/')) {
+      throw new Error('Bestand is geen afbeelding');
+    }
+    
+    // Controleer of het bestand niet te groot is (max 5MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_FILE_SIZE) {
+      console.warn('Bestand is te groot:', `${(file.size / (1024 * 1024)).toFixed(2)} MB`);
+      throw new Error(`Bestand is te groot (${(file.size / (1024 * 1024)).toFixed(2)} MB). Maximale grootte is 5MB.`);
+    }
+    
+    // Detecteer iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    // Genereer een unieke bestandsnaam om caching problemen te voorkomen
+    // Verwijder alle speciale tekens en spaties uit de bestandsnaam
+    // Zorg ervoor dat de extensie altijd .jpg is voor consistentie
+    const fileNameBase = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9]/g, '_');
+    const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}_${fileNameBase}.jpg`;
+    
+    console.log('Firebase upload - unieke bestandsnaam:', uniqueFileName);
+    
+    // Maak de storage reference
+    const storagePath = `observations/${observationId}/${uniqueFileName}`;
+    console.log('Firebase upload - storage pad:', storagePath);
+    
+    try {
+      // Upload de foto naar Firebase Storage
+      const storageRef = ref(storage, storagePath);
+      
+      // Speciale metadata voor iOS-apparaten
+      const metadata = {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'originalFileName': file.name,
+          'uploadedFrom': isIOS ? 'iOS' : 'other',
+          'timestamp': new Date().toISOString()
+        }
+      };
+      
+      console.log('Firebase upload - start uploaden met metadata:', metadata);
+      
+      // Gebruik een Promise met timeout om te voorkomen dat de upload vastloopt
+      const uploadPromise = new Promise(async (resolve, reject) => {
+        try {
+          const uploadResult = await uploadBytes(storageRef, file, metadata);
+          console.log('Firebase upload - upload voltooid:', uploadResult);
+          resolve(uploadResult);
+        } catch (error) {
+          console.error('Firebase upload - fout tijdens upload:', error);
+          reject(error);
+        }
+      });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Upload timeout na 30 seconden')), 30000)
+      );
+      
+      // Race tussen de upload en de timeout
+      const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+      
+      // Haal de download URL op
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log('Firebase upload - download URL verkregen:', downloadURL);
+      
+      // Update de observatie met de nieuwe foto URL
+      try {
+        const observationDoc = await getDoc(doc(db, 'observations', observationId));
+        if (!observationDoc.exists()) {
+          console.error(`Observatie met ID ${observationId} bestaat niet`);
+          throw new Error(`Observatie met ID ${observationId} bestaat niet`);
+        }
+        
+        const observationData = observationDoc.data();
+        const mediaUrls = observationData.mediaUrls || [];
+        
+        console.log('Firebase upload - huidige mediaUrls:', mediaUrls);
+        
+        // Voeg de nieuwe URL toe aan de mediaUrls array
+        const updatedMediaUrls = [...mediaUrls, downloadURL];
+        console.log('Firebase upload - bijgewerkte mediaUrls:', updatedMediaUrls);
+        
+        // Gebruik een batch om de update betrouwbaarder te maken
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'observations', observationId), {
+          mediaUrls: updatedMediaUrls,
+          updatedAt: serverTimestamp()
+        });
+        
+        await batch.commit();
+        console.log('Firebase upload - observatie succesvol bijgewerkt met nieuwe foto URL');
+      } catch (firestoreError) {
+        console.error('Fout bij het bijwerken van observatie in Firestore:', firestoreError);
+        
+        // Zelfs als de Firestore update mislukt, retourneer de URL
+        // zodat de foto nog steeds beschikbaar is in Storage
+        console.log('Firebase upload - foto is geüpload naar Storage maar niet bijgewerkt in Firestore');
+        return downloadURL;
+      }
+      
+      return downloadURL;
+    } catch (storageError) {
+      console.error('Fout bij het uploaden naar Firebase Storage:', storageError);
+      
+      // Geef een duidelijkere foutmelding terug
+      if (storageError.code === 'storage/unauthorized') {
+        throw new Error('Geen toestemming om de foto te uploaden. Controleer of je bent ingelogd.');
+      } else if (storageError.code === 'storage/canceled') {
+        throw new Error('Upload is geannuleerd. Probeer het opnieuw.');
+      } else if (storageError.code === 'storage/unknown') {
+        throw new Error('Onbekende fout bij het uploaden. Probeer het later opnieuw.');
+      } else if (storageError.code === 'storage/quota-exceeded') {
+        throw new Error('Opslaglimiet bereikt. Neem contact op met de beheerder.');
+      } else if (storageError.code === 'storage/invalid-argument') {
+        throw new Error('Ongeldig bestand. Probeer een andere foto.');
+      } else if (storageError.code === 'storage/server-file-wrong-size') {
+        throw new Error('Fout bij het uploaden: bestandsgrootte komt niet overeen. Probeer een andere foto.');
+      } else if (storageError.message && storageError.message.includes('timeout')) {
+        throw new Error('Upload timeout. Controleer je internetverbinding en probeer het opnieuw met een kleinere foto.');
+      } else {
+        throw new Error(`Fout bij het uploaden: ${storageError.message || 'Onbekende fout'}`);
+      }
+    }
   } catch (error) {
     console.error('Fout bij het toevoegen van foto aan observatie:', error);
     throw error;
@@ -430,6 +558,8 @@ export const addPhotoToObservation = async (observationId, file) => {
  */
 export const getWalkObservations = async (walkId) => {
   try {
+    console.log(`Observaties ophalen voor wandeling: ${walkId}`);
+    
     const q = query(
       collection(db, 'observations'),
       where('walkId', '==', walkId),
@@ -437,7 +567,22 @@ export const getWalkObservations = async (walkId) => {
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const observations = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      const observation = { id: doc.id, ...data };
+      
+      // Log de mediaUrls voor debugging
+      if (observation.mediaUrls) {
+        console.log(`Observatie ${doc.id} heeft ${observation.mediaUrls.length} mediaUrls:`, observation.mediaUrls);
+      } else {
+        console.log(`Observatie ${doc.id} heeft geen mediaUrls`);
+      }
+      
+      return observation;
+    });
+    
+    console.log(`${observations.length} observaties opgehaald voor wandeling ${walkId}`);
+    return observations;
   } catch (error) {
     console.error('Fout bij het ophalen van observaties:', error);
     throw error;

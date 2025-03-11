@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatTime } from '../utils/dateUtils';
 import { suggestObservationToJournal, checkJournalApiSupport } from '../services/journalService';
 import WeatherDisplay from './WeatherDisplay';
@@ -15,6 +15,13 @@ const ObservationItem = ({ observation, onClick, isOffline }) => {
 
   // Log de observatie voor debugging
   console.log('Rendering ObservationItem:', observation);
+
+  // Controleer of er mediaUrls zijn en log deze voor debugging
+  useEffect(() => {
+    if (observation.mediaUrls && observation.mediaUrls.length > 0) {
+      console.log(`Observatie ${observation.id} heeft ${observation.mediaUrls.length} mediaUrls:`, observation.mediaUrls);
+    }
+  }, [observation]);
 
   // Deel observatie met Apple Journal
   const handleShareToJournal = async (e) => {
@@ -138,7 +145,7 @@ const ObservationItem = ({ observation, onClick, isOffline }) => {
             
             <p className="text-gray-700 mt-1">{observation.text}</p>
             
-            {observation.mediaUrls && observation.mediaUrls.length > 0 && (
+            {observation.mediaUrls && observation.mediaUrls.length > 0 ? (
               <div className="mt-2 flex space-x-2 overflow-x-auto">
                 {observation.mediaUrls.map((url, index) => (
                   <img 
@@ -147,13 +154,21 @@ const ObservationItem = ({ observation, onClick, isOffline }) => {
                     alt={`Foto ${index + 1}`} 
                     className="h-16 w-16 object-cover rounded-md"
                     onError={(e) => {
-                      console.error(`Fout bij het laden van afbeelding ${index}:`, url);
+                      console.error(`Fout bij het laden van afbeelding ${index} voor observatie ${observation.id}:`, url);
                       e.target.src = 'https://via.placeholder.com/150?text=Fout';
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Voorkom dat de onClick van de parent wordt aangeroepen
+                      window.open(url, '_blank');
                     }}
                   />
                 ))}
               </div>
-            )}
+            ) : observation.mediaUrls ? (
+              <div className="mt-2 text-sm text-gray-500">
+                Geen afbeeldingen beschikbaar (mediaUrls is leeg)
+              </div>
+            ) : null}
           </div>
         </div>
         

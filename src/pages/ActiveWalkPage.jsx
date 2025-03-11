@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useVoice } from '../context/VoiceContext';
 import { 
   getWalk, 
@@ -13,10 +13,12 @@ import {
 import { 
   startLocationTracking, 
   stopLocationTracking, 
+  calculateDistance,
   calculateRouteDistance,
   formatDistance,
-  checkLocationAvailability,
-  updatePathPoints
+  checkLocationPermission,
+  requestLocationPermission,
+  isBrowserLocationSupported
 } from '../services/locationService';
 import { getWeatherData } from '../services/weatherService';
 import {
@@ -76,7 +78,7 @@ const ActiveWalkPage = () => {
 
   // Observatie modal
   const [showObservationModal, setShowObservationModal] = useState(false);
-  const [observationPhoto, setObservationPhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
 
   // Controleer online/offline status
@@ -197,36 +199,56 @@ const ActiveWalkPage = () => {
 
   // Callback voor succesvolle locatie updates
   const handleLocationUpdate = (location) => {
-    // Zet de huidige locatie
-    setCurrentLocation([location.lat, location.lng]);
+    if (!location) return;
     
-    // Als dit een fallback locatie is, toon een waarschuwing
-    if (location.isDefault && !error) {
-      setError('Locatie niet beschikbaar. Gebruik een apparaat met GPS voor nauwkeurige tracking.');
-    } else if (error && !location.isDefault) {
-      // Als we weer een echte locatie hebben, verwijder de foutmelding
-      setError('');
-    }
-    
-    // Update het pad en de afstand
-    setPathPoints(prevPoints => {
-      const updatedPoints = updatePathPoints(prevPoints, location);
-      
-      // Als er een nieuw punt is toegevoegd, update de afstand en de wandeling in de database
-      if (updatedPoints.length > prevPoints.length) {
-        // Bereken de afstand
-        const newDistance = calculateRouteDistance(updatedPoints);
-        setDistance(newDistance);
-        
-        // Update de wandeling in de database
-        updateWalkPath([location.lat, location.lng]);
-      }
-      
-      return updatedPoints;
+    // Log locatie voor debugging
+    console.log('Locatie update ontvangen:', {
+      lat: location.lat,
+      lng: location.lng,
+      accuracy: location.accuracy,
+      isDefault: location.isDefault
     });
     
-    // Reset de teller voor opeenvolgende fouten
-    setConsecutiveLocationErrors(0);
+    // Sla de huidige locatie op
+    setCurrentLocation(location);
+    
+    // Als dit een fallback locatie is, toon een waarschuwing
+    if (location.isDefault && !hasShownLocationWarning) {
+      setHasShownLocationWarning(true);
+      alert('Je locatie kon niet worden bepaald. We gebruiken een standaardlocatie voor deze wandeling. Controleer je locatietoestemming en GPS-instellingen.');
+      return;
+    }
+    
+    // Voeg het punt toe aan het pad als het geen fallback locatie is
+    if (!location.isDefault) {
+      // Bereken de afstand tot het laatste punt
+      const lastPoint = pathPoints.length > 0 ? pathPoints[pathPoints.length - 1] : null;
+      
+      // Controleer of dit een significante verplaatsing is (meer dan 5 meter)
+      // of als er nog geen punten zijn, of als het meer dan 60 seconden geleden is
+      const now = Date.now();
+      const timeSinceLastUpdate = lastLocationUpdateTime ? now - lastLocationUpdateTime : Infinity;
+      const isTimeToUpdate = timeSinceLastUpdate >= 60000; // 60 seconden (1 minuut)
+      
+      if (!lastPoint || 
+          calculateDistance(lastPoint, location) > 5 || 
+          isTimeToUpdate) {
+        
+        // Log dat we een nieuw punt toevoegen
+        console.log('Nieuw punt toevoegen aan pad:', {
+          reden: !lastPoint ? 'Eerste punt' : 
+                 calculateDistance(lastPoint, location) > 5 ? 'Significante verplaatsing' : 
+                 'Tijdsinterval (1 minuut)',
+          tijd: new Date().toLocaleTimeString()
+        });
+        
+        // Update het pad
+        updateWalkPath(location);
+        
+        // Update de tijd van de laatste locatie-update
+        setLastLocationUpdateTime(now);
+      }
+    }
   };
 
   // Callback voor locatiefouten
@@ -251,46 +273,41 @@ const ActiveWalkPage = () => {
     }
   };
 
-  // Start locatie tracking
-  useEffect(() => {
-    if (!walkId) return;
-    
-    const startTracking = () => {
-      try {
-        const watchId = startLocationTracking(
-          handleLocationUpdate,
-          handleLocationError
-        );
-        
-        watchIdRef.current = watchId;
-      } catch (error) {
-        console.error('Fout bij het starten van locatie tracking:', error);
-        setError('Kon locatie tracking niet starten. Controleer of je locatietoestemming hebt gegeven.');
+  // Start de locatietracking
+  const startTracking = () => {
+    try {
+      console.log('Locatietracking starten...');
+      
+      // Controleer of de browser locatieservices ondersteunt
+      if (!isBrowserLocationSupported()) {
+        setError('Je browser ondersteunt geen locatieservices. Gebruik een moderne browser met GPS-ondersteuning.');
+        return;
       }
-    };
-    
-    // Controleer eerst of locatieservices beschikbaar zijn
-    checkLocationAvailability().then(available => {
-      if (available) {
-        startTracking();
-      } else {
-        setError('Locatieservices zijn niet beschikbaar. Controleer je browserinstellingen en geef toestemming voor locatietoegang.');
-      }
-    });
-    
-    // Haal weergegevens op als we online zijn
-    if (!isOffline) {
-      fetchWeatherData();
+      
+      // Initialiseer state variabelen
+      setConsecutiveLocationErrors(0);
+      setHasShownLocationWarning(false);
+      setLastLocationUpdateTime(null);
+      
+      // Start de locatietracking met de nieuwe parameters
+      // - Vraag expliciet om toestemming als deze eerder is geweigerd
+      // - Gebruik een fallback locatie als de echte locatie niet beschikbaar is
+      const watchInfo = startLocationTracking(
+        handleLocationUpdate,
+        handleLocationError,
+        true, // useFallback
+        true  // requestPermission
+      );
+      
+      // Sla de watchInfo op om later de tracking te kunnen stoppen
+      watchIdRef.current = watchInfo;
+      
+      console.log('Locatietracking gestart');
+    } catch (error) {
+      console.error('Fout bij het starten van locatietracking:', error);
+      setError(`Kon locatietracking niet starten: ${error.message}`);
     }
-    
-    // Cleanup functie
-    return () => {
-      if (watchIdRef.current) {
-        stopLocationTracking(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-    };
-  }, [walkId, isOffline]);
+  };
 
   // Haal weergegevens op
   const fetchWeatherData = async () => {
@@ -304,52 +321,60 @@ const ActiveWalkPage = () => {
     }
   };
 
-  // Update het wandelpad in de database
+  /**
+   * Update het wandelpad met een nieuw punt
+   * @param {Object} newPoint - Het nieuwe locatiepunt
+   */
   const updateWalkPath = async (newPoint) => {
-    if (!walkId || !currentUser) return;
-    
     try {
+      if (!walkId || !newPoint) return;
+      
       // Voeg het nieuwe punt toe aan het pad
-      const updatedPathPoints = updatePathPoints(pathPoints, { 
-        lat: newPoint[0], 
-        lng: newPoint[1] 
+      const updatedPathPoints = [...pathPoints, newPoint];
+      setPathPoints(updatedPathPoints);
+      
+      // Bereken de nieuwe afstand
+      const newDistance = calculateRouteDistance(updatedPathPoints);
+      setDistance(newDistance);
+      
+      // Converteer het punt naar het juiste formaat voor de database
+      const pointForDb = {
+        lat: newPoint.lat,
+        lng: newPoint.lng,
+        timestamp: newPoint.timestamp || Date.now()
+      };
+      
+      // Update de wandeling in de database
+      await updateWalk(walkId, {
+        currentLocation: pointForDb,
+        distance: newDistance,
+        pathPoints: updatedPathPoints.map(point => ({
+          lat: point.lat,
+          lng: point.lng,
+          timestamp: point.timestamp || Date.now()
+        }))
       });
       
-      // Alleen updaten als er daadwerkelijk een nieuw punt is toegevoegd
-      if (updatedPathPoints.length > pathPoints.length) {
-        console.log('Online modus: wandelpad updaten in Firestore');
-        
-        // Bereken de afstand
-        const calculatedDistance = calculateRouteDistance(updatedPathPoints);
-        
-        // Converteer de array van arrays naar een array van objecten voor Firestore
-        // Firestore ondersteunt geen geneste arrays
-        const pathPointsForFirestore = updatedPathPoints.map((point, index) => ({
-          lat: point[0],
-          lng: point[1],
-          index: index, // Index toevoegen voor sortering
-          timestamp: new Date().toISOString()
-        }));
-        
-        // Update de wandeling in de database
-        if (isOffline) {
-          updateOfflineWalk(walkId, {
-            pathPoints: pathPointsForFirestore,
-            distance: calculatedDistance
-          });
-        } else {
-          await updateWalk(walkId, {
-            pathPoints: pathPointsForFirestore,
-            distance: calculatedDistance
-          });
-        }
-        
-        // Update de lokale state
-        setPathPoints(updatedPathPoints);
-        setDistance(calculatedDistance);
-      }
+      console.log('Wandelpad bijgewerkt in database:', {
+        punt: pointForDb,
+        afstand: newDistance,
+        aantalPunten: updatedPathPoints.length
+      });
     } catch (error) {
-      console.error('Fout bij het updaten van wandelpad:', error);
+      console.error('Fout bij het updaten van het wandelpad:', error);
+      
+      // Als we offline zijn, sla de update op voor later
+      if (isOffline) {
+        console.log('Offline modus: wandelpad update wordt opgeslagen voor later');
+        setPendingUpdates(prev => [...prev, {
+          type: 'PATH_UPDATE',
+          data: {
+            walkId,
+            point: newPoint,
+            timestamp: Date.now()
+          }
+        }]);
+      }
     }
   };
 
@@ -593,29 +618,170 @@ const ActiveWalkPage = () => {
     try {
       setLoading(true);
       
-      // Comprimeer de afbeelding voordat deze wordt geüpload
-      console.log('Bezig met comprimeren van afbeelding...');
-      const compressedFile = await compressImage(file, {
-        maxWidth: 1600,
-        maxHeight: 1600,
-        quality: 0.75
+      // Controleer of het bestand geldig is
+      if (!file || !file.type.startsWith('image/')) {
+        console.error('Ongeldig bestandstype:', file?.type);
+        alert('Ongeldig bestandstype. Alleen afbeeldingen worden ondersteund.');
+        setLoading(false);
+        return;
+      }
+      
+      // Detecteer iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      
+      // Log bestandsinformatie voor debugging
+      console.log('Bestandsinformatie vóór compressie:', {
+        naam: file.name,
+        type: file.type,
+        grootte: `${(file.size / 1024).toFixed(2)} KB`,
+        lastModified: new Date(file.lastModified).toISOString(),
+        isIOS: isIOS
       });
       
-      await addPhotoToObservation(observationId, compressedFile);
+      // Comprimeer de afbeelding voordat deze wordt geüpload
+      console.log('Bezig met comprimeren van afbeelding...');
+      let compressedFile;
+      try {
+        // Gebruik lagere kwaliteit en afmetingen voor iOS
+        const compressOptions = {
+          maxWidth: isIOS ? 1000 : 1200,
+          maxHeight: isIOS ? 1000 : 1200,
+          quality: isIOS ? 0.5 : 0.7
+        };
+        
+        console.log('Compressie-opties:', compressOptions);
+        
+        compressedFile = await compressImage(file, compressOptions);
+        
+        console.log('Bestandsinformatie na compressie:', {
+          naam: compressedFile.name,
+          type: compressedFile.type,
+          grootte: `${(compressedFile.size / 1024).toFixed(2)} KB`,
+          compressieRatio: `${Math.round((compressedFile.size / file.size) * 100)}%`
+        });
+        
+        // Extra controle voor iOS: als het bestand nog steeds te groot is
+        if (isIOS && compressedFile.size > 2 * 1024 * 1024) {
+          console.warn('Bestand is nog steeds te groot na compressie, probeer nogmaals met lagere kwaliteit');
+          
+          // Probeer nogmaals met nog lagere kwaliteit
+          compressedFile = await compressImage(compressedFile, {
+            maxWidth: 800,
+            maxHeight: 800,
+            quality: 0.3
+          });
+          
+          console.log('Bestandsinformatie na extra compressie:', {
+            naam: compressedFile.name,
+            type: compressedFile.type,
+            grootte: `${(compressedFile.size / 1024).toFixed(2)} KB`
+          });
+        }
+      } catch (compressError) {
+        console.error('Fout bij het comprimeren van afbeelding:', compressError);
+        // Gebruik het originele bestand als compressie mislukt
+        console.log('Gebruik origineel bestand omdat compressie is mislukt');
+        compressedFile = file;
+      }
+      
+      console.log('Bezig met uploaden van afbeelding naar Firebase Storage...');
+      console.log('Upload voor observatie ID:', observationId);
+      
+      // Voeg een timeout toe om te voorkomen dat de upload vastloopt
+      const uploadPromise = addPhotoToObservation(observationId, compressedFile);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Upload timeout na 60 seconden')), 60000)
+      );
+      
+      // Race tussen de upload en de timeout
+      const downloadURL = await Promise.race([uploadPromise, timeoutPromise]);
+      
+      if (!downloadURL) {
+        throw new Error('Geen download URL ontvangen na uploaden van foto');
+      }
+      
+      console.log('Foto succesvol geüpload, download URL:', downloadURL);
+      
+      // Wacht even om ervoor te zorgen dat de database is bijgewerkt
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Ververs observaties om de nieuwe foto te tonen
-      const updatedObservations = await getWalkObservations(walkId);
+      try {
+        console.log('Observaties verversen na foto upload...');
+        const updatedObservations = await getWalkObservations(walkId);
+        
+        // Log de ontvangen observaties voor debugging
+        console.log('Bijgewerkte observaties na foto upload:', updatedObservations);
+        
+        // Controleer of de observatie met de nieuwe foto aanwezig is
+        const updatedObservation = updatedObservations.find(obs => obs.id === observationId);
+        if (updatedObservation) {
+          console.log('Bijgewerkte observatie gevonden:', updatedObservation);
+          console.log('MediaUrls in bijgewerkte observatie:', updatedObservation.mediaUrls);
+        } else {
+          console.warn('Bijgewerkte observatie niet gevonden in resultaten');
+        }
+        
+        // Zorg ervoor dat de state wordt bijgewerkt met de nieuwe observaties
+        setObservations(updatedObservations);
+      } catch (refreshError) {
+        console.error('Fout bij het verversen van observaties na foto upload:', refreshError);
+        // Ga door, omdat de foto wel is geüpload
+        
+        // Probeer de observatie handmatig bij te werken in de huidige state
+        try {
+          const updatedObservations = [...observations];
+          const observationIndex = updatedObservations.findIndex(obs => obs.id === observationId);
+          
+          if (observationIndex !== -1) {
+            const observation = updatedObservations[observationIndex];
+            const mediaUrls = observation.mediaUrls || [];
+            updatedObservations[observationIndex] = {
+              ...observation,
+              mediaUrls: [...mediaUrls, downloadURL]
+            };
+            
+            console.log('Observatie handmatig bijgewerkt in state:', updatedObservations[observationIndex]);
+            setObservations(updatedObservations);
+          }
+        } catch (stateUpdateError) {
+          console.error('Fout bij handmatige update van observatie in state:', stateUpdateError);
+        }
+      }
       
-      // Log de ontvangen observaties voor debugging
-      console.log('Bijgewerkte observaties na foto upload:', updatedObservations);
-      
-      // Zorg ervoor dat de state wordt bijgewerkt met de nieuwe observaties
-      setObservations(updatedObservations);
+      // Reset de foto state
+      setPhotoFile(null);
+      setPhotoPreview(null);
       
       alert('Foto succesvol toegevoegd!');
     } catch (error) {
       console.error('Fout bij het uploaden van foto:', error);
-      alert('Kon foto niet uploaden');
+      
+      // Geef een gebruikersvriendelijke foutmelding
+      let errorMessage = 'Kon foto niet uploaden';
+      
+      if (error.message.includes('timeout')) {
+        errorMessage = 'Het uploaden van de foto duurde te lang. Controleer je internetverbinding en probeer het opnieuw met een kleinere foto.';
+      } else if (error.message.includes('toestemming')) {
+        errorMessage = 'Geen toestemming om de foto te uploaden. Probeer opnieuw in te loggen.';
+      } else if (error.message.includes('te groot')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('Opslagservice')) {
+        errorMessage = 'De opslagservice is niet beschikbaar. Probeer de app opnieuw te laden.';
+      } else if (error.message) {
+        errorMessage = `Kon foto niet uploaden: ${error.message}`;
+      }
+      
+      alert(errorMessage);
+      
+      // Probeer de observatie toch te behouden, zelfs zonder foto
+      try {
+        const updatedObservations = await getWalkObservations(walkId);
+        setObservations(updatedObservations);
+      } catch (refreshError) {
+        console.error('Fout bij het verversen van observaties na mislukte foto upload:', refreshError);
+      }
     } finally {
       setLoading(false);
     }
@@ -664,7 +830,7 @@ const ActiveWalkPage = () => {
   const handleShowObservationModal = (category = '') => {
     setObservationCategory(category);
     setObservationText('');
-    setObservationPhoto(null);
+    setPhotoFile(null);
     setPhotoPreview(null);
     setShowObservationModal(true);
   };
@@ -694,9 +860,9 @@ const ActiveWalkPage = () => {
       console.log('Observatie succesvol opgeslagen met ID:', observationId);
       
       // Als er een foto is, voeg deze toe
-      if (observationPhoto && observationId) {
+      if (photoFile && observationId) {
         console.log('Foto wordt toegevoegd aan observatie:', observationId);
-        await handleFileUpload(observationId, observationPhoto);
+        await handleFileUpload(observationId, photoFile);
       } else {
         // Als er geen foto is, ververs de observaties toch
         console.log('Geen foto om toe te voegen, observaties worden ververst');
@@ -723,7 +889,7 @@ const ActiveWalkPage = () => {
     const file = e.target.files[0];
     if (!file) return;
     
-    setObservationPhoto(file);
+    setPhotoFile(file);
     
     // Maak een preview van de foto met thumbnail functie
     createThumbnail(file, 800)
@@ -744,12 +910,54 @@ const ActiveWalkPage = () => {
 
   // Verwijder geselecteerde foto
   const handleRemovePhoto = () => {
-    setObservationPhoto(null);
+    setPhotoFile(null);
     setPhotoPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  // Start locatie tracking wanneer de wandeling wordt geladen
+  useEffect(() => {
+    if (!walkId) return;
+    
+    console.log('Wandeling geladen, locatietracking initialiseren...');
+    
+    // Controleer eerst of locatieservices beschikbaar zijn
+    checkLocationPermission(true).then(hasPermission => {
+      if (hasPermission) {
+        console.log('Locatietoestemming verleend, tracking starten');
+        startTracking();
+      } else {
+        console.warn('Geen locatietoestemming, vragen om toestemming');
+        // Vraag expliciet om toestemming
+        requestLocationPermission().then(granted => {
+          if (granted) {
+            console.log('Locatietoestemming verleend na verzoek, tracking starten');
+            startTracking();
+          } else {
+            setError('Locatietoestemming geweigerd. Sommige functies werken mogelijk niet correct.');
+            // Start tracking met fallback
+            startTracking();
+          }
+        });
+      }
+    });
+    
+    // Haal weergegevens op als we online zijn
+    if (!isOffline) {
+      fetchWeatherData();
+    }
+    
+    // Cleanup functie
+    return () => {
+      if (watchIdRef.current) {
+        console.log('Locatietracking stoppen bij unmount');
+        stopLocationTracking(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [walkId, isOffline]);
 
   return (
     <div className="pb-20">

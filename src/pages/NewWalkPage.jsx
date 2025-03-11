@@ -4,8 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useVoice } from '../context/VoiceContext';
 import { getCurrentLocation } from '../services/locationService';
 import { getCachedWeatherData } from '../services/weatherService';
-import { createWalk } from '../services/firestoreService';
-import { isOnline, saveOfflineWalk } from '../services/offlineService';
+import { createWalk, getUserWalks, endWalk } from '../services/firestoreService';
+import { isOnline, saveOfflineWalk, getOfflineWalks, endOfflineWalk } from '../services/offlineService';
 import { getNearbyObservations } from '../services/ebirdService';
 import LazyMapComponent from '../components/LazyMapComponent';
 import WeatherDisplay from '../components/WeatherDisplay';
@@ -32,6 +32,9 @@ const NewWalkPage = () => {
   const [loadingBirds, setLoadingBirds] = useState(false);
   const [birdError, setBirdError] = useState('');
   const [radius, setRadius] = useState(userSettings?.birdRadius || 10);
+  const [activeWalks, setActiveWalks] = useState([]);
+  const [checkingActiveWalks, setCheckingActiveWalks] = useState(false);
+  const [showActiveWalkWarning, setShowActiveWalkWarning] = useState(false);
 
   // Controleer online status
   useEffect(() => {
@@ -115,14 +118,69 @@ const NewWalkPage = () => {
     }
   }, [isListening, transcript, isNamingWalk]);
 
-  // Start een nieuwe wandeling
-  const handleStartWalk = async (name) => {
+  // Haal actieve wandelingen op
+  useEffect(() => {
+    const fetchActiveWalks = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setCheckingActiveWalks(true);
+        
+        // Haal online wandelingen op
+        const onlineWalks = await getUserWalks(currentUser.uid, 100);
+        const activeOnlineWalks = onlineWalks.filter(walk => !walk.endTime);
+        
+        // Haal offline wandelingen op
+        const offlineWalks = getOfflineWalks();
+        const activeOfflineWalks = offlineWalks.filter(walk => !walk.endTime);
+        
+        // Combineer actieve wandelingen
+        const allActiveWalks = [...activeOnlineWalks, ...activeOfflineWalks];
+        setActiveWalks(allActiveWalks);
+      } catch (error) {
+        console.error('Fout bij het ophalen van actieve wandelingen:', error);
+      } finally {
+        setCheckingActiveWalks(false);
+      }
+    };
+    
+    fetchActiveWalks();
+  }, [currentUser]);
+
+  // Beëindig alle actieve wandelingen
+  const handleEndActiveWalks = async () => {
+    try {
+      setLoading(true);
+      
+      // Beëindig elke actieve wandeling
+      for (const walk of activeWalks) {
+        if (isOffline) {
+          // Offline modus: beëindig in lokale opslag
+          endOfflineWalk(walk.id, location, 0);
+        } else {
+          // Online modus: beëindig in Firestore
+          await endWalk(walk.id, location, 0);
+        }
+      }
+      
+      // Verberg de waarschuwing en start een nieuwe wandeling
+      setShowActiveWalkWarning(false);
+      handleStartNewWalk();
+    } catch (error) {
+      console.error('Fout bij het beëindigen van actieve wandelingen:', error);
+      setError('Kon actieve wandelingen niet beëindigen. Probeer het later opnieuw.');
+      setLoading(false);
+    }
+  };
+
+  // Start een nieuwe wandeling (zonder controle op actieve wandelingen)
+  const handleStartNewWalk = async () => {
     if (!currentUser || !location) {
       setError('Kan geen wandeling starten. Controleer je locatietoestemming.');
       return;
     }
     
-    const walkNameToUse = name || walkName || `Wandeling ${new Date().toLocaleDateString()}`;
+    const walkNameToUse = walkName || `Wandeling ${new Date().toLocaleDateString()}`;
     
     try {
       setLoading(true);
@@ -158,6 +216,20 @@ const NewWalkPage = () => {
       setLoading(false);
     }
   };
+
+  // Start een nieuwe wandeling
+  const handleStartWalk = async (name) => {
+    if (name) {
+      setWalkName(name);
+    }
+    
+    // Controleer of er actieve wandelingen zijn
+    if (activeWalks.length > 0) {
+      setShowActiveWalkWarning(true);
+    } else {
+      handleStartNewWalk();
+    }
+  };
   
   // Start spraakherkenning voor het benoemen van de wandeling
   const handleVoiceNaming = () => {
@@ -172,6 +244,34 @@ const NewWalkPage = () => {
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
           <p>{error}</p>
+        </div>
+      )}
+      
+      {/* Waarschuwing voor actieve wandelingen */}
+      {showActiveWalkWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Actieve wandeling gevonden</h3>
+            <p className="text-gray-700 mb-4">
+              Je hebt nog {activeWalks.length === 1 ? 'een actieve wandeling' : `${activeWalks.length} actieve wandelingen`}. 
+              Als je een nieuwe wandeling start, worden alle actieve wandelingen automatisch beëindigd.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowActiveWalkWarning(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={handleEndActiveWalks}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+                disabled={loading}
+              >
+                {loading ? 'Bezig...' : 'Doorgaan'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
       
