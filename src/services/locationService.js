@@ -41,10 +41,54 @@ export const isBrowserLocationSupported = () => {
 };
 
 /**
+ * Vraagt expliciet om locatietoestemming door een locatie op te halen
+ * Dit zorgt ervoor dat het besturingssysteem de toestemmingsprompt toont
+ * @returns {Promise<boolean>} - Of de toestemming is verleend
+ */
+export const requestLocationPermission = () => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      console.warn('Geolocation wordt niet ondersteund door deze browser.');
+      resolve(false);
+      return;
+    }
+    
+    console.log('Expliciet vragen om locatietoestemming...');
+    
+    // Speciale opties voor iOS-apparaten
+    const isIOSDevice = isIOS();
+    const geoOptions = isIOSDevice ? 
+      { 
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0 // Forceer een nieuwe locatiebepaling
+      } : 
+      { 
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0 // Forceer een nieuwe locatiebepaling
+      };
+    
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        console.log('Locatietoestemming verleend!');
+        resolve(true);
+      },
+      (error) => {
+        console.warn('Locatietoestemming geweigerd of fout:', error);
+        resolve(false);
+      },
+      geoOptions
+    );
+  });
+};
+
+/**
  * Controleert of de gebruiker toestemming heeft gegeven voor locatietoegang
+ * @param {boolean} requestIfDenied - Of er opnieuw om toestemming moet worden gevraagd als deze eerder is geweigerd
  * @returns {Promise<boolean>} - Of de gebruiker toestemming heeft gegeven
  */
-export const checkLocationPermission = () => {
+export const checkLocationPermission = (requestIfDenied = false) => {
   return new Promise((resolve) => {
     if (!navigator.permissions || !navigator.permissions.query) {
       // Browser ondersteunt geen permissions API, probeer direct locatie op te halen
@@ -53,7 +97,14 @@ export const checkLocationPermission = () => {
         .then(() => resolve(true))
         .catch((error) => {
           console.warn('Geen locatietoestemming:', error);
-          resolve(false);
+          
+          // Als requestIfDenied is ingeschakeld, vraag opnieuw om toestemming
+          if (requestIfDenied) {
+            console.log('Opnieuw vragen om locatietoestemming...');
+            requestLocationPermission().then(resolve);
+          } else {
+            resolve(false);
+          }
         });
       return;
     }
@@ -61,7 +112,18 @@ export const checkLocationPermission = () => {
     navigator.permissions.query({ name: 'geolocation' })
       .then((permissionStatus) => {
         console.log('Locatietoestemming status:', permissionStatus.state);
-        resolve(permissionStatus.state === 'granted');
+        
+        if (permissionStatus.state === 'granted') {
+          resolve(true);
+        } else if (permissionStatus.state === 'prompt') {
+          // Bij 'prompt' status, vraag expliciet om toestemming
+          requestLocationPermission().then(resolve);
+        } else if (permissionStatus.state === 'denied' && requestIfDenied) {
+          // Bij 'denied' status en requestIfDenied is true, vraag opnieuw om toestemming
+          requestLocationPermission().then(resolve);
+        } else {
+          resolve(false);
+        }
         
         // Luister naar toekomstige wijzigingen
         permissionStatus.onchange = () => {
@@ -70,7 +132,14 @@ export const checkLocationPermission = () => {
       })
       .catch((error) => {
         console.warn('Fout bij het controleren van locatietoestemming:', error);
-        resolve(false);
+        
+        // Als requestIfDenied is ingeschakeld, vraag opnieuw om toestemming
+        if (requestIfDenied) {
+          console.log('Opnieuw vragen om locatietoestemming na fout...');
+          requestLocationPermission().then(resolve);
+        } else {
+          resolve(false);
+        }
       });
   });
 };
@@ -94,11 +163,29 @@ export const isMobileDevice = () => {
 };
 
 /**
+ * Detecteert of de gebruiker op een iOS-apparaat zit
+ * @returns {boolean} - Of de gebruiker op een iOS-apparaat zit
+ */
+export const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+/**
+ * Detecteert of de gebruiker op een Android-apparaat zit
+ * @returns {boolean} - Of de gebruiker op een Android-apparaat zit
+ */
+export const isAndroid = () => {
+  return /Android/i.test(navigator.userAgent);
+};
+
+/**
  * Haalt de huidige locatie op
  * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
+ * @param {boolean} requestPermission - Of er expliciet om toestemming moet worden gevraagd als deze eerder is geweigerd
  * @returns {Promise<{lat: number, lng: number, isDefault: boolean}>} - Huidige locatie
  */
-export const getCurrentLocation = (useFallback = true) => {
+export const getCurrentLocation = (useFallback = true, requestPermission = true) => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       console.warn('Geolocation wordt niet ondersteund door deze browser.');
@@ -116,8 +203,12 @@ export const getCurrentLocation = (useFallback = true) => {
     console.log('Platform:', navigator.platform);
     const isMacOSDevice = isMacOS();
     const isMobile = isMobileDevice();
+    const isIOSDevice = isIOS();
+    const isAndroidDevice = isAndroid();
     console.log('Is macOS:', isMacOSDevice);
     console.log('Is mobiel apparaat:', isMobile);
+    console.log('Is iOS apparaat:', isIOSDevice);
+    console.log('Is Android apparaat:', isAndroidDevice);
     
     // Als het een macOS-apparaat is en geen mobiel apparaat, gebruik direct de fallback
     // Dit is omdat macOS vaak problemen heeft met CoreLocationProvider
@@ -127,14 +218,52 @@ export const getCurrentLocation = (useFallback = true) => {
       return;
     }
     
+    // Speciale instellingen voor iOS-apparaten
+    const geoOptions = isIOSDevice ? 
+      { 
+        enableHighAccuracy: true,
+        timeout: 30000, // Langere timeout voor iOS
+        maximumAge: 0 // Forceer een nieuwe locatiebepaling op iOS
+      } : isAndroidDevice ?
+      {
+        enableHighAccuracy: true,
+        timeout: 20000, // Langere timeout voor Android
+        maximumAge: 30000
+      } :
+      { 
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      };
+    
     // Probeer eerst de locatietoestemming te controleren
-    checkLocationPermission().then(hasPermission => {
+    checkLocationPermission(requestPermission).then(hasPermission => {
       console.log('Heeft locatietoestemming:', hasPermission);
       
-      if (!hasPermission && useFallback) {
-        console.info('Geen locatietoestemming, fallback locatie wordt gebruikt.');
-        resolve({...DEFAULT_LOCATION, isDefault: true});
-        return;
+      if (!hasPermission) {
+        if (requestPermission) {
+          // Vraag expliciet om toestemming als deze nog niet is verleend
+          console.log('Expliciet vragen om locatietoestemming...');
+          requestLocationPermission().then(granted => {
+            if (granted) {
+              // Probeer opnieuw de locatie op te halen na toestemming
+              getCurrentLocation(useFallback, false).then(resolve).catch(reject);
+            } else if (useFallback) {
+              console.info('Geen locatietoestemming na verzoek, fallback locatie wordt gebruikt.');
+              resolve({...DEFAULT_LOCATION, isDefault: true});
+            } else {
+              reject(new Error('Locatietoestemming geweigerd.'));
+            }
+          });
+          return;
+        } else if (useFallback) {
+          console.info('Geen locatietoestemming, fallback locatie wordt gebruikt.');
+          resolve({...DEFAULT_LOCATION, isDefault: true});
+          return;
+        } else {
+          reject(new Error('Locatietoestemming geweigerd.'));
+          return;
+        }
       }
       
       const timeoutId = setTimeout(() => {
@@ -144,7 +273,7 @@ export const getCurrentLocation = (useFallback = true) => {
         } else {
           reject(new Error('Locatie ophalen duurde te lang.'));
         }
-      }, 15000); // 15 seconden timeout
+      }, isIOSDevice ? 35000 : 25000); // Nog langere timeout voor iOS
       
       // Probeer eerst met hoge nauwkeurigheid
       navigator.geolocation.getCurrentPosition(
@@ -160,6 +289,24 @@ export const getCurrentLocation = (useFallback = true) => {
         },
         (error) => {
           console.warn('Fout bij het ophalen van locatie met hoge nauwkeurigheid:', error);
+          
+          // Als de fout PERMISSION_DENIED is en we hebben nog niet geprobeerd om toestemming te vragen
+          if (error.code === ERROR_CODES.PERMISSION_DENIED && requestPermission) {
+            clearTimeout(timeoutId);
+            console.log('Locatietoestemming geweigerd, probeer opnieuw toestemming te vragen...');
+            requestLocationPermission().then(granted => {
+              if (granted) {
+                // Probeer opnieuw de locatie op te halen na toestemming
+                getCurrentLocation(useFallback, false).then(resolve).catch(reject);
+              } else if (useFallback) {
+                console.info('Geen locatietoestemming na verzoek, fallback locatie wordt gebruikt.');
+                resolve({...DEFAULT_LOCATION, isDefault: true});
+              } else {
+                reject(new Error('Locatietoestemming geweigerd.'));
+              }
+            });
+            return;
+          }
           
           // Probeer opnieuw met lagere nauwkeurigheid
           navigator.geolocation.getCurrentPosition(
@@ -178,6 +325,23 @@ export const getCurrentLocation = (useFallback = true) => {
               const errorMessage = getErrorMessage(secondError);
               console.warn('Fout bij het ophalen van locatie met lage nauwkeurigheid:', errorMessage);
               
+              // Als de fout PERMISSION_DENIED is en we hebben nog niet geprobeerd om toestemming te vragen
+              if (secondError.code === ERROR_CODES.PERMISSION_DENIED && requestPermission) {
+                console.log('Locatietoestemming geweigerd, probeer opnieuw toestemming te vragen...');
+                requestLocationPermission().then(granted => {
+                  if (granted) {
+                    // Probeer opnieuw de locatie op te halen na toestemming
+                    getCurrentLocation(useFallback, false).then(resolve).catch(reject);
+                  } else if (useFallback) {
+                    console.info('Geen locatietoestemming na verzoek, fallback locatie wordt gebruikt.');
+                    resolve({...DEFAULT_LOCATION, isDefault: true});
+                  } else {
+                    reject(new Error('Locatietoestemming geweigerd.'));
+                  }
+                });
+                return;
+              }
+              
               if (useFallback) {
                 console.info('Fallback locatie wordt gebruikt na meerdere pogingen.');
                 resolve({...DEFAULT_LOCATION, isDefault: true, error: errorMessage});
@@ -187,16 +351,12 @@ export const getCurrentLocation = (useFallback = true) => {
             },
             { 
               enableHighAccuracy: false,
-              timeout: 10000,
-              maximumAge: 300000 // 5 minuten
+              timeout: isIOSDevice ? 25000 : 15000,
+              maximumAge: isIOSDevice ? 30000 : 300000
             }
           );
         },
-        { 
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000 // 1 minuut
-        }
+        geoOptions
       );
     });
   });
@@ -210,17 +370,36 @@ const MAX_CONSECUTIVE_ERRORS = 5;
 let lastSuccessfulLocationTime = 0;
 const MAX_LOCATION_AGE = 60000; // 60 seconden
 
+// Houdt bij wanneer de laatste locatie is opgeslagen
+let lastLocationSaveTime = 0;
+const LOCATION_SAVE_INTERVAL = 60000; // 60 seconden (1 minuut)
+
 /**
  * Start het volgen van de locatie
  * @param {Function} callback - Functie die wordt aangeroepen bij locatiewijzigingen
  * @param {Function} errorCallback - Functie die wordt aangeroepen bij locatiefouten
  * @param {boolean} useFallback - Of een fallback locatie moet worden gebruikt als de echte locatie niet beschikbaar is
+ * @param {boolean} requestPermission - Of er expliciet om toestemming moet worden gevraagd als deze eerder is geweigerd
  * @returns {number|null} - ID van de watch die kan worden gebruikt om het volgen te stoppen, of null bij fallback
  */
-export const startLocationTracking = (callback, errorCallback = null, useFallback = true) => {
-  // Reset de teller voor opeenvolgende fouten
+export const startLocationTracking = (callback, errorCallback = null, useFallback = true, requestPermission = true) => {
+  // Reset de tellers
   consecutiveErrors = 0;
   lastSuccessfulLocationTime = 0;
+  lastLocationSaveTime = 0;
+  
+  // Detecteer apparaattype
+  const isIOSDevice = isIOS();
+  const isAndroidDevice = isAndroid();
+  const isMacOSDevice = isMacOS();
+  const isMobile = isMobileDevice();
+  
+  console.log('Start locatie tracking - apparaattype:', {
+    isIOS: isIOSDevice,
+    isAndroid: isAndroidDevice,
+    isMacOS: isMacOSDevice,
+    isMobile: isMobile
+  });
   
   // Functie om fallback locatie te gebruiken
   const useFallbackLocation = (reason) => {
@@ -233,16 +412,28 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
     
     // Simuleer locatie updates met kleine variaties rond de fallback locatie
     const intervalId = setInterval(() => {
+      const now = Date.now();
       const randomLat = DEFAULT_LOCATION.lat + (Math.random() - 0.5) * 0.001; // ±~50m
       const randomLng = DEFAULT_LOCATION.lng + (Math.random() - 0.5) * 0.001; // ±~50m
       
-      callback({
+      const location = {
         lat: randomLat,
         lng: randomLng,
         accuracy: 50, // 50 meter nauwkeurigheid
-        timestamp: Date.now(),
+        timestamp: now,
         isDefault: true
-      });
+      };
+      
+      callback(location);
+      
+      // Sla de tijd op van de laatste locatie
+      lastSuccessfulLocationTime = now;
+      
+      // Controleer of we de locatie moeten opslaan (elke minuut)
+      if (now - lastLocationSaveTime >= LOCATION_SAVE_INTERVAL) {
+        console.log('Locatie opslaan (fallback, interval):', location);
+        lastLocationSaveTime = now;
+      }
     }, 5000); // Elke 5 seconden
     
     // Sla het interval ID op in een object dat we kunnen gebruiken om het later te stoppen
@@ -261,18 +452,26 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
   }
   
   // Als het een macOS-apparaat is en geen mobiel apparaat, gebruik direct de fallback
-  const isMacOSDevice = isMacOS();
-  const isMobile = isMobileDevice();
   if (isMacOSDevice && !isMobile && useFallback) {
     console.info('macOS desktop gedetecteerd, gebruik direct fallback locatie voor tracking om CoreLocation problemen te vermijden');
     return useFallbackLocation('macOS desktop gedetecteerd');
   }
   
-  // Controleer eerst of locatie beschikbaar is
-  checkLocationAvailability()
+  // Controleer eerst of locatie beschikbaar is en vraag om toestemming indien nodig
+  checkLocationPermission(requestPermission)
     .then(available => {
-      if (!available && useFallback) {
-        watchInfo = useFallbackLocation('Locatietoestemming geweigerd of niet beschikbaar');
+      if (!available) {
+        if (requestPermission) {
+          // Vraag expliciet om toestemming als deze nog niet is verleend
+          console.log('Expliciet vragen om locatietoestemming voor tracking...');
+          requestLocationPermission().then(granted => {
+            if (!granted && useFallback) {
+              watchInfo = useFallbackLocation('Locatietoestemming geweigerd na verzoek');
+            }
+          });
+        } else if (useFallback) {
+          watchInfo = useFallbackLocation('Locatietoestemming geweigerd of niet beschikbaar');
+        }
       }
     })
     .catch(error => {
@@ -295,11 +494,24 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
         navigator.geolocation.clearWatch(watchInfo.id);
       }
       
-      // Start opnieuw
-      watchInfo = startWatchPosition();
+      // Vraag opnieuw om toestemming als dat nodig is
+      if (requestPermission) {
+        requestLocationPermission().then(granted => {
+          if (granted) {
+            // Start opnieuw na toestemming
+            watchInfo = startWatchPosition();
+          } else if (useFallback) {
+            // Gebruik fallback als toestemming is geweigerd
+            watchInfo = useFallbackLocation('Locatietoestemming geweigerd na recovery poging');
+          }
+        });
+      } else {
+        // Start opnieuw zonder toestemming te vragen
+        watchInfo = startWatchPosition();
+      }
       
       // Als we nog steeds geen locatie krijgen na meerdere pogingen, gebruik fallback
-      if (consecutiveErrors > 5 && useFallback) {
+      if (consecutiveErrors > MAX_CONSECUTIVE_ERRORS && useFallback) {
         // Stop de huidige tracking
         if (watchInfo) {
           if (watchInfo.type === 'geolocation') {
@@ -327,6 +539,35 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
       errorCallback(new Error(errorMessage), consecutiveErrors);
     }
     
+    // Als de fout PERMISSION_DENIED is en we mogen om toestemming vragen
+    if (error.code === ERROR_CODES.PERMISSION_DENIED && requestPermission) {
+      console.log('Locatietoestemming geweigerd tijdens tracking, probeer opnieuw toestemming te vragen...');
+      requestLocationPermission().then(granted => {
+        if (granted) {
+          // Reset de teller voor opeenvolgende fouten
+          consecutiveErrors = 0;
+          
+          // Stop de huidige tracking
+          if (watchInfo && watchInfo.type === 'geolocation') {
+            navigator.geolocation.clearWatch(watchInfo.id);
+          }
+          
+          // Start opnieuw na toestemming
+          watchInfo = startWatchPosition();
+        } else if (useFallback && consecutiveErrors > 3) {
+          // Gebruik fallback als toestemming is geweigerd en er zijn meerdere fouten
+          // Stop de huidige tracking
+          if (watchInfo && watchInfo.type === 'geolocation') {
+            navigator.geolocation.clearWatch(watchInfo.id);
+          }
+          
+          // Gebruik fallback
+          watchInfo = useFallbackLocation('Locatietoestemming geweigerd na meerdere pogingen');
+        }
+      });
+      return;
+    }
+    
     // Als er te veel opeenvolgende fouten zijn en fallback is toegestaan, gebruik fallback
     if (consecutiveErrors > 3 && useFallback) {
       // Stop de huidige tracking
@@ -340,26 +581,49 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
   };
   
   const startWatchPosition = () => {
+    // Speciale instellingen voor iOS-apparaten
+    const geoOptions = isIOSDevice ? 
+      { 
+        enableHighAccuracy: true,
+        timeout: 30000, // Langere timeout voor iOS
+        maximumAge: 0 // Forceer een nieuwe locatiebepaling op iOS
+      } : isAndroidDevice ?
+      {
+        enableHighAccuracy: true,
+        timeout: 20000, // Langere timeout voor Android
+        maximumAge: 30000
+      } :
+      { 
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      };
+    
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         // Reset de teller voor opeenvolgende fouten bij een succesvolle locatiebepaling
         consecutiveErrors = 0;
-        lastSuccessfulLocationTime = Date.now();
+        const now = Date.now();
+        lastSuccessfulLocationTime = now;
         
-        callback({
+        const location = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
+          timestamp: position.timestamp || now,
           isDefault: false
-        });
+        };
+        
+        callback(location);
+        
+        // Controleer of we de locatie moeten opslaan (elke minuut)
+        if (now - lastLocationSaveTime >= LOCATION_SAVE_INTERVAL) {
+          console.log('Locatie opslaan (interval):', location);
+          lastLocationSaveTime = now;
+        }
       },
       handleError,
-      { 
-        enableHighAccuracy: true,
-        timeout: 20000, // 20 seconden timeout (verhoogd van 15)
-        maximumAge: 60000 // 60 seconden (verhoogd van 30)
-      }
+      geoOptions
     );
     
     return { type: 'geolocation', id: watchId };
@@ -371,6 +635,7 @@ export const startLocationTracking = (callback, errorCallback = null, useFallbac
   // Voeg de recovery timer toe aan het watchInfo object
   watchInfo.recoveryTimerId = recoveryTimerId;
   
+  // Geef een object terug waarmee de tracking kan worden gestopt
   return watchInfo;
 };
 
@@ -400,6 +665,7 @@ export const stopLocationTracking = (watchInfo) => {
   // Reset de teller voor opeenvolgende fouten
   consecutiveErrors = 0;
   lastSuccessfulLocationTime = 0;
+  lastLocationSaveTime = 0;
 };
 
 /**

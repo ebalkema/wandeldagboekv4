@@ -6,6 +6,7 @@ import { hasPendingSyncItems, syncOfflineItems, getPendingSyncCount } from '../s
 import { FaSignOutAlt, FaSync, FaCog, FaInfoCircle, FaHeart, FaBinoculars, FaTrash, FaTags } from 'react-icons/fa';
 import { FaCheck, FaExclamationTriangle, FaUsers, FaRoute, FaEye, FaMedal } from 'react-icons/fa';
 import { FaFire } from 'react-icons/fa';
+import { VERSION, BUILD_NUMBER, BUILD_DATE } from '../version';
 
 /**
  * Profielpagina voor gebruikersinstellingen en statistieken
@@ -612,7 +613,8 @@ const ProfilePage = () => {
       </div>
       
       <div className="text-center text-sm text-gray-500 mb-6">
-        <p>Wandeldagboek v3.0</p>
+        <p>Wandeldagboek v{VERSION} (build {BUILD_NUMBER})</p>
+        <p className="text-xs text-gray-400">Gebouwd op: {new Date(BUILD_DATE).toLocaleDateString()}</p>
         <p>&copy; {new Date().getFullYear()} - Een PWA voor natuurobservaties</p>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatTime } from '../utils/dateUtils';
+import { getCurrentLocation } from '../services/locationService';
 
 /**
  * Component voor het weergeven van een kaart met wandelroute en observaties
@@ -28,13 +29,43 @@ const MapComponent = ({
   const tileLayerRef = useRef(null);
   const [mapError, setMapError] = useState(false);
   const [selectedBirdLocation, setSelectedBirdLocation] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+
+  // Haal de huidige locatie op als er geen center is opgegeven
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      try {
+        const location = await getCurrentLocation();
+        if (!location.isDefault) {
+          setUserLocation([location.lat, location.lng]);
+          console.log('Huidige locatie opgehaald voor kaart:', location);
+        } else {
+          console.log('Fallback locatie gebruikt voor kaart');
+        }
+      } catch (error) {
+        console.error('Fout bij het ophalen van locatie voor kaart:', error);
+      }
+    };
+    
+    if (!center && !userLocation) {
+      fetchUserLocation();
+    }
+  }, [center, userLocation]);
 
   // Initialiseer de kaart
   useEffect(() => {
     if (!mapInstanceRef.current && mapRef.current) {
       // Standaard locatie (Amsterdam) als er geen huidige locatie is
       const defaultLocation = [52.3676, 4.9041];
-      const initialLocation = center || (pathPoints.length > 0 ? pathPoints[0] : defaultLocation);
+      
+      // Gebruik de opgegeven center, of de gebruikerslocatie, of het eerste punt van het pad, of de standaardlocatie
+      const initialLocation = center || 
+                             (userLocation ? userLocation : 
+                             (pathPoints.length > 0 ? 
+                              (Array.isArray(pathPoints[0]) ? pathPoints[0] : [pathPoints[0].lat, pathPoints[0].lng]) : 
+                              defaultLocation));
+      
+      console.log('Kaart initialiseren met locatie:', initialLocation);
       
       // Initialiseer de kaart
       mapInstanceRef.current = L.map(mapRef.current).setView(initialLocation, zoom);
@@ -70,44 +101,48 @@ const MapComponent = ({
         mapInstanceRef.current = null;
       }
     };
-  }, []);
+  }, [center, userLocation, pathPoints, zoom]);
 
   // Update de kaartweergave als de huidige locatie verandert
   useEffect(() => {
-    if (center && mapInstanceRef.current) {
-      // Update de kaartweergave
-      mapInstanceRef.current.setView(center, mapInstanceRef.current.getZoom());
+    if (mapInstanceRef.current) {
+      const locationToUse = center || userLocation;
       
-      // Update of maak de huidige locatie marker
-      if (showCurrentLocation) {
-        if (currentLocationMarkerRef.current) {
-          currentLocationMarkerRef.current.setLatLng(center);
-        } else {
-          // Maak een aangepaste marker voor de huidige locatie
-          const currentLocationIcon = L.divIcon({
-            className: 'current-location-marker',
-            html: `
-              <div style="
-                background-color: #4285F4;
-                width: 16px;
-                height: 16px;
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 0 0 2px #4285F4;
-              "></div>
-            `,
-            iconSize: [22, 22],
-            iconAnchor: [11, 11]
-          });
-          
-          currentLocationMarkerRef.current = L.marker(center, { 
-            icon: currentLocationIcon,
-            zIndexOffset: 1000
-          }).addTo(mapInstanceRef.current);
+      if (locationToUse) {
+        // Update de kaartweergave
+        mapInstanceRef.current.setView(locationToUse, mapInstanceRef.current.getZoom());
+        
+        // Update of maak de huidige locatie marker
+        if (showCurrentLocation) {
+          if (currentLocationMarkerRef.current) {
+            currentLocationMarkerRef.current.setLatLng(locationToUse);
+          } else {
+            // Maak een aangepaste marker voor de huidige locatie
+            const currentLocationIcon = L.divIcon({
+              className: 'current-location-marker',
+              html: `
+                <div style="
+                  background-color: #4285F4;
+                  width: 16px;
+                  height: 16px;
+                  border-radius: 50%;
+                  border: 3px solid white;
+                  box-shadow: 0 0 0 2px #4285F4;
+                "></div>
+              `,
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
+            });
+            
+            currentLocationMarkerRef.current = L.marker(locationToUse, {
+              icon: currentLocationIcon,
+              zIndexOffset: 1000
+            }).addTo(mapInstanceRef.current);
+          }
         }
       }
     }
-  }, [center, showCurrentLocation]);
+  }, [center, userLocation, showCurrentLocation]);
 
   // Update het pad op de kaart als pathPoints verandert
   useEffect(() => {
